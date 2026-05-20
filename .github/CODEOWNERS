@@ -9,13 +9,13 @@
 *                                      @AokDesu
 
 # Documentation
-/docs/                                 @AokDesu @BELLE_HANDLE_TBD
+/docs/                                 @AokDesu @BBelleysp
 /docs/superpowers/specs/               @AokDesu
 
 # Repo scaffolding
 /.github/                              @AokDesu
-/.claude/                              @AokDesu @BELLE_HANDLE_TBD
-/scripts/                              @AokDesu @BELLE_HANDLE_TBD
+/.claude/                              @AokDesu @BBelleysp
+/scripts/                              @AokDesu @BBelleysp
 
 # Backend — Aok
 /firestore.rules                       @AokDesu
@@ -24,33 +24,33 @@
 /functions/                            @AokDesu
 
 # App — Identity + shared UI — Belle
-/app/lib/core/                         @BELLE_HANDLE_TBD
-/app/lib/features/auth/                @BELLE_HANDLE_TBD
-/app/lib/widgets/                      @BELLE_HANDLE_TBD
-/app/lib/utils/thai_id_validator.dart  @BELLE_HANDLE_TBD
+/app/lib/core/                         @BBelleysp
+/app/lib/features/auth/                @BBelleysp
+/app/lib/widgets/                      @BBelleysp
+/app/lib/utils/thai_id_validator.dart  @BBelleysp
 
 # App — Request domain — Bew
-/app/lib/features/user/request_page.dart      @BEW_HANDLE_TBD
-/app/lib/features/user/queue_page.dart        @BEW_HANDLE_TBD
-/app/lib/features/user/history_page.dart      @BEW_HANDLE_TBD
-/app/lib/features/admin/requests_page.dart    @BEW_HANDLE_TBD
-/app/lib/features/admin/request_manage_page.dart @BEW_HANDLE_TBD
-/app/lib/features/admin/inventory_page.dart   @BEW_HANDLE_TBD
+/app/lib/features/user/request_page.dart      @SNOWxSAUSAGES
+/app/lib/features/user/queue_page.dart        @SNOWxSAUSAGES
+/app/lib/features/user/history_page.dart      @SNOWxSAUSAGES
+/app/lib/features/admin/requests_page.dart    @SNOWxSAUSAGES
+/app/lib/features/admin/request_manage_page.dart @SNOWxSAUSAGES
+/app/lib/features/admin/inventory_page.dart   @SNOWxSAUSAGES
 
 # App — Tracking + maps — Poom
-/app/lib/features/user/tracking_page.dart     @POOM_HANDLE_TBD
-/app/lib/features/user/confirm_page.dart      @POOM_HANDLE_TBD
-/app/lib/features/user/notifications_page.dart @POOM_HANDLE_TBD
-/app/lib/features/admin/control_page.dart     @POOM_HANDLE_TBD
+/app/lib/features/user/tracking_page.dart     @Mrmo0p
+/app/lib/features/user/confirm_page.dart      @Mrmo0p
+/app/lib/features/user/notifications_page.dart @Mrmo0p
+/app/lib/features/admin/control_page.dart     @Mrmo0p
 
 # App — Fleet domain — Tawan
-/app/lib/features/admin/drone_list_page.dart  @TAWAN_HANDLE_TBD
-/app/lib/features/admin/drone_detail_page.dart @TAWAN_HANDLE_TBD
-/app/lib/features/admin/weather_page.dart     @TAWAN_HANDLE_TBD
+/app/lib/features/admin/drone_list_page.dart  @Tantawan7
+/app/lib/features/admin/drone_detail_page.dart @Tantawan7
+/app/lib/features/admin/weather_page.dart     @Tantawan7
 
 # Per-dev agent-log folder — only the owner touches it
 /docs/agent-logs/aok/                  @AokDesu
-/docs/agent-logs/belle/                @BELLE_HANDLE_TBD
-/docs/agent-logs/bew/                  @BEW_HANDLE_TBD
-/docs/agent-logs/poom/                 @POOM_HANDLE_TBD
-/docs/agent-logs/tawan/                @TAWAN_HANDLE_TBD
+/docs/agent-logs/belle/                @BBelleysp
+/docs/agent-logs/bew/                  @SNOWxSAUSAGES
+/docs/agent-logs/poom/                 @Mrmo0p
+/docs/agent-logs/tawan/                @Tantawan7

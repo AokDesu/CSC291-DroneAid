@@ -21,10 +21,10 @@
 | Role | Name | GitHub handle |
 |---|---|---|
 | Lead · Backend + integration | Aok | [@AokDesu](https://github.com/AokDesu) |
-| Identity + shared UI | Belle | _TBD_ |
-| Request domain | Bew | _TBD_ |
-| Tracking + maps | Poom | _TBD_ |
-| Fleet domain | Tawan | _TBD_ |
+| Identity + shared UI | Belle | [@BBelleysp](https://github.com/BBelleysp) |
+| Request domain | Bew | [@SNOWxSAUSAGES](https://github.com/SNOWxSAUSAGES) |
+| Tracking + maps | Poom | [@Mrmo0p](https://github.com/Mrmo0p) |
+| Fleet domain | Tawan | [@Tantawan7](https://github.com/Tantawan7) |
 
 Domains, dependencies, and RACI per page in [`docs/00-team-raci.md`](docs/00-team-raci.md).
 

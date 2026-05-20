@@ -22,10 +22,10 @@ Each per-dev folder receives that dev's session JSONL files, named `YYYY-MM-DD_<
 | Real name | Folder name | GitHub handle |
 |---|---|---|
 | Aok | `aok` | @AokDesu |
-| Belle | `belle` | _TBD_ |
-| Bew | `bew` | _TBD_ |
-| Poom | `poom` | _TBD_ |
-| Tawan | `tawan` | _TBD_ |
+| Belle | `belle` | @BBelleysp |
+| Bew | `bew` | @SNOWxSAUSAGES |
+| Poom | `poom` | @Mrmo0p |
+| Tawan | `tawan` | @Tantawan7 |
 
 When real GitHub handles are known, update this table and `.github/CODEOWNERS`.
 
