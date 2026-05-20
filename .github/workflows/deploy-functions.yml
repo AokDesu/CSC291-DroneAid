@@ -1,0 +1,24 @@
+name: Deploy Cloud Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - 'firebase.json'
+
+# Stub — finalize on Day 1 after Firebase project is created.
+
+jobs:
+  deploy:
+    name: firebase deploy --only functions
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      # TODO Day 1: setup-node 20; npm ci in functions/; install firebase-tools.
+      # TODO Day 1: write $FIREBASE_SERVICE_ACCOUNT to file; export GOOGLE_APPLICATION_CREDENTIALS.
+      # TODO Day 1: firebase deploy --only functions --project csc291-drone-relief --non-interactive
+      - run: echo "TODO Day 1 — wire firebase deploy --only functions"
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

@@ -1,0 +1,87 @@
+# ── DroneAid .gitignore ──────────────────────────────────────────────
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE / editor ──
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.iml
+*.swp
+*.swo
+
+# ── Claude Code / Superpowers (local only) ──
+.superpowers/
+.claude/settings.local.json
+**/.claude/*.local.*
+.claude/cache/
+
+# ── Secrets ──
+*.env
+.env
+.env.local
+.env.*.local
+firebase-service-account*.json
+*-service-account*.json
+*serviceAccount*.json
+gcloud-key*.json
+
+# ── Flutter / Dart ──
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/ios/Flutter/Flutter.framework/
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/android/.gradle/
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/key.properties
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# ── Node / Cloud Functions ──
+node_modules/
+npm-debug.log
+yarn-error.log
+*.log
+dist/
+.firebase/
+firebase-debug*.log
+functions/lib/
+
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# ── Coverage / build outputs ──
+coverage/
+lcov.info
+*.lcov
+
+# ── Local helper script env ──
+.drone-aid.env

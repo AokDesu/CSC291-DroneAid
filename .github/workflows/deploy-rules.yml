@@ -1,0 +1,22 @@
+name: Deploy Firestore rules + indexes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+
+# Stub — finalize on Day 1 after Firebase project is created.
+
+jobs:
+  deploy:
+    name: firebase deploy --only firestore:rules,firestore:indexes
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      # TODO Day 1: install firebase-tools, write service account, deploy.
+      - run: echo "TODO Day 1 — wire firebase deploy --only firestore:rules,firestore:indexes"
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

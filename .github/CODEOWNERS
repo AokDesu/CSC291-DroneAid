@@ -1,0 +1,56 @@
+# DroneAid CODEOWNERS
+#
+# GitHub will request a review from the listed owner(s) when a PR touches matching paths.
+# Handles are placeholders until the team sends real GitHub usernames; replace then.
+#
+# Order matters: later patterns override earlier ones.
+
+# Default — Aok (lead) reviews anything unassigned.
+*                                      @AokDesu
+
+# Documentation
+/docs/                                 @AokDesu @BELLE_HANDLE_TBD
+/docs/superpowers/specs/               @AokDesu
+
+# Repo scaffolding
+/.github/                              @AokDesu
+/.claude/                              @AokDesu @BELLE_HANDLE_TBD
+/scripts/                              @AokDesu @BELLE_HANDLE_TBD
+
+# Backend — Aok
+/firestore.rules                       @AokDesu
+/firestore.indexes.json                @AokDesu
+/firebase.json                         @AokDesu
+/functions/                            @AokDesu
+
+# App — Identity + shared UI — Belle
+/app/lib/core/                         @BELLE_HANDLE_TBD
+/app/lib/features/auth/                @BELLE_HANDLE_TBD
+/app/lib/widgets/                      @BELLE_HANDLE_TBD
+/app/lib/utils/thai_id_validator.dart  @BELLE_HANDLE_TBD
+
+# App — Request domain — Bew
+/app/lib/features/user/request_page.dart      @BEW_HANDLE_TBD
+/app/lib/features/user/queue_page.dart        @BEW_HANDLE_TBD
+/app/lib/features/user/history_page.dart      @BEW_HANDLE_TBD
+/app/lib/features/admin/requests_page.dart    @BEW_HANDLE_TBD
+/app/lib/features/admin/request_manage_page.dart @BEW_HANDLE_TBD
+/app/lib/features/admin/inventory_page.dart   @BEW_HANDLE_TBD
+
+# App — Tracking + maps — Poom
+/app/lib/features/user/tracking_page.dart     @POOM_HANDLE_TBD
+/app/lib/features/user/confirm_page.dart      @POOM_HANDLE_TBD
+/app/lib/features/user/notifications_page.dart @POOM_HANDLE_TBD
+/app/lib/features/admin/control_page.dart     @POOM_HANDLE_TBD
+
+# App — Fleet domain — Tawan
+/app/lib/features/admin/drone_list_page.dart  @TAWAN_HANDLE_TBD
+/app/lib/features/admin/drone_detail_page.dart @TAWAN_HANDLE_TBD
+/app/lib/features/admin/weather_page.dart     @TAWAN_HANDLE_TBD
+
+# Per-dev agent-log folder — only the owner touches it
+/docs/agent-logs/aok/                  @AokDesu
+/docs/agent-logs/belle/                @BELLE_HANDLE_TBD
+/docs/agent-logs/bew/                  @BEW_HANDLE_TBD
+/docs/agent-logs/poom/                 @POOM_HANDLE_TBD
+/docs/agent-logs/tawan/                @TAWAN_HANDLE_TBD

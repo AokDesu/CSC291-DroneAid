@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Stub workflow — jobs declared but no-op until app/ and functions/ scaffolding lands on Day 1.
+# Replace each `echo TODO` step with the real command listed in the comment above it.
+
+jobs:
+  flutter-test:
+    name: Flutter analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO Day 1: uses: subosito/flutter-action@v2 with flutter-version: '3.x'
+      # TODO Day 1: flutter pub get && flutter analyze && flutter test
+      - run: echo "TODO Day 1 — wire flutter analyze + test in app/"
+
+  functions-test:
+    name: Cloud Functions lint + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO Day 1: uses: actions/setup-node@v4 with node-version: 20
+      # TODO Day 1: cd functions && npm ci && npm run lint && npm test
+      - run: echo "TODO Day 1 — wire npm ci + lint + test in functions/"
+
+  rules-test:
+    name: Firestore rules emulator test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO Day 1: setup-node + firebase-tools + emulator:exec rules test
+      - run: echo "TODO Day 1 — firebase emulators:exec rules unit tests"
+
+  secrets-scan:
+    name: gitleaks secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # TODO Day 1: uses: gitleaks/gitleaks-action@v2
+      - run: echo "TODO Day 1 — gitleaks against diff"
+
+  log-presence:
+    name: Agent log presence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # TODO Day 1: python script that resolves PR author → handle via docs/agent-logs/README.md table,
+      # then fails if any non-doc/-non-meta source file changed AND no new *.jsonl appears under
+      # docs/agent-logs/<handle>/ in the PR diff.
+      - run: echo "TODO Day 1 — implement log-presence gate"
