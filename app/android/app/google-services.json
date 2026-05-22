@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1081227597841",
+    "project_id": "droneaid-csc291",
+    "storage_bucket": "droneaid-csc291.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1081227597841:android:05bf849922402822be39b0",
+        "android_client_info": {
+          "package_name": "com.droneaid.droneaid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOcVv-XlJOreoz29gEjDv6EK-y_8Fk-AI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

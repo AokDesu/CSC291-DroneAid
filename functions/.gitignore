@@ -1,5 +1,6 @@
 node_modules/
 lib/
+!src/lib/
 *.log
 .firebase/
 firebase-debug*.log

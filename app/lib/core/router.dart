@@ -22,21 +22,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       // User shell (placeholder; bottom-nav added when Belle implements AuthGate).
       GoRoute(path: '/user/home',           builder: (_, __) => const UserHomePage()),
       GoRoute(path: '/user/queue',          builder: (_, __) => const _Placeholder('Queue (P-U-04)')),
-      GoRoute(path: '/user/tracking/:flightId',
-        builder: (_, state) => _Placeholder('Tracking flight ${state.pathParameters['flightId']} (P-U-05)')),
-      GoRoute(path: '/user/confirm/:reqId',
-        builder: (_, state) => _Placeholder('Confirm request ${state.pathParameters['reqId']} (P-U-06)')),
+      GoRoute(
+        path: '/user/tracking/:flightId',
+        builder: (_, state) =>
+            _Placeholder('Tracking flight ${state.pathParameters['flightId']} (P-U-05)'),
+      ),
+      GoRoute(
+        path: '/user/confirm/:reqId',
+        builder: (_, state) =>
+            _Placeholder('Confirm request ${state.pathParameters['reqId']} (P-U-06)'),
+      ),
       GoRoute(path: '/user/history',        builder: (_, __) => const _Placeholder('History (P-U-07)')),
       GoRoute(path: '/user/notifications',  builder: (_, __) => const _Placeholder('Notifications (P-U-08)')),
       GoRoute(path: '/user/profile',        builder: (_, __) => const _Placeholder('Profile + Settings (P-U-09)')),
 
       // Admin
       GoRoute(path: '/admin/requests',      builder: (_, __) => const AdminRequestsPage()),
-      GoRoute(path: '/admin/requests/:reqId',
-        builder: (_, state) => _Placeholder('Request manage ${state.pathParameters['reqId']} (P-A-02)')),
+      GoRoute(
+        path: '/admin/requests/:reqId',
+        builder: (_, state) =>
+            _Placeholder('Request manage ${state.pathParameters['reqId']} (P-A-02)'),
+      ),
       GoRoute(path: '/admin/drones',        builder: (_, __) => const _Placeholder('Drone list (P-A-03)')),
-      GoRoute(path: '/admin/drones/:droneId',
-        builder: (_, state) => _Placeholder('Drone ${state.pathParameters['droneId']} (P-A-04)')),
+      GoRoute(
+        path: '/admin/drones/:droneId',
+        builder: (_, state) =>
+            _Placeholder('Drone ${state.pathParameters['droneId']} (P-A-04)'),
+      ),
       GoRoute(path: '/admin/control',       builder: (_, __) => const _Placeholder('Control map (P-A-05)')),
       GoRoute(path: '/admin/weather',       builder: (_, __) => const _Placeholder('Weather panel (P-A-06)')),
       GoRoute(path: '/admin/inventory',     builder: (_, __) => const _Placeholder('Inventory (P-A-07)')),

@@ -7,7 +7,7 @@ import { db } from "../lib/admin";
 import { requireAdmin } from "../lib/roles";
 
 const InputSchema = z.object({
-  itemId: z.string().regex(/^[a-z0-9][a-z0-9\-]{1,40}$/),
+  itemId: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/),
   name: z.string().min(1).max(40),
   weightKg: z.number().positive().max(6),
   initialStock: z.number().int().min(0).max(9999),
