@@ -1,0 +1,16 @@
+title = "DroneAid gitleaks config"
+
+[extend]
+useDefault = true
+
+# Firebase / Google client API keys (AIza…) are not secrets:
+# they identify the Firebase project to Google's servers and are
+# meant to ship in the client binary. Security is enforced via
+# Firestore rules + Firebase Auth, not key obscurity.
+# Google docs: https://firebase.google.com/docs/projects/api-keys
+[allowlist]
+description = "Allow committed Firebase client config files."
+paths = [
+  '''app/android/app/google-services\.json''',
+  '''app/lib/firebase_options\.dart''',
+]
