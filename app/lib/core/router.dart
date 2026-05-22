@@ -1,25 +1,51 @@
-// go_router skeleton per docs/09-page-flow-design.md §3.
-// Belle owns the auth gate; until that lands, every route is reachable for
-// development. Routes match the IDs in the page-flow design doc.
+// go_router with role-aware redirect guard. See docs/09-page-flow-design.md §3.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/admin/requests_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/user/home_page.dart';
-import '../features/admin/requests_page.dart';
+import 'auth/auth_providers.dart';
+
+const _publicRoutes = {'/login', '/register'};
 
 /// Single source of truth for navigation. Watched by [DroneAidApp].
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
+    refreshListenable: _AuthListenable(ref),
+    redirect: (context, state) {
+      final auth = ref.read(authStateProvider);
+      final profile = ref.read(userProfileProvider);
+      final loc = state.matchedLocation;
+      final isPublic = _publicRoutes.contains(loc);
+
+      // Still resolving cold-start auth — let splash render.
+      if (auth.isLoading) return null;
+
+      final user = auth.valueOrNull;
+      if (user == null) {
+        return isPublic ? null : '/login';
+      }
+
+      // Signed in but profile not yet loaded — keep on splash, redirect later.
+      if (profile.isLoading) return isPublic ? null : null;
+
+      final role = profile.valueOrNull?.role ?? 'user';
+      final landing = role == 'admin' ? '/admin/requests' : '/user/home';
+
+      if (isPublic) return landing;
+      if (loc.startsWith('/admin') && role != 'admin') return '/user/home';
+      return null;
+    },
     routes: [
       GoRoute(path: '/login',    builder: (_, __) => const LoginPage()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
 
-      // User shell (placeholder; bottom-nav added when Belle implements AuthGate).
+      // User
       GoRoute(path: '/user/home',           builder: (_, __) => const UserHomePage()),
       GoRoute(path: '/user/queue',          builder: (_, __) => const _Placeholder('Queue (P-U-04)')),
       GoRoute(
@@ -56,6 +82,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     errorBuilder: (_, state) => _Placeholder('No route for ${state.uri.path}'),
   );
 });
+
+/// Bridges Riverpod's [authStateProvider] + [userProfileProvider] into the
+/// [GoRouter.refreshListenable] hook so the redirect re-runs on sign-in/out.
+class _AuthListenable extends ChangeNotifier {
+  _AuthListenable(this._ref) {
+    _authSub = _ref.listen(authStateProvider, (_, __) => notifyListeners());
+    _profileSub = _ref.listen(userProfileProvider, (_, __) => notifyListeners());
+  }
+
+  final Ref _ref;
+  late final ProviderSubscription _authSub;
+  late final ProviderSubscription _profileSub;
+
+  @override
+  void dispose() {
+    _authSub.close();
+    _profileSub.close();
+    super.dispose();
+  }
+}
 
 class _Placeholder extends StatelessWidget {
   const _Placeholder(this.label);

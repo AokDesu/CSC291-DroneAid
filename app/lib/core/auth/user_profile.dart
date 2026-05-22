@@ -1,0 +1,38 @@
+// Immutable view of `users/{uid}` for the client.
+//
+// Mirrors the document shape provisioned by `functions/src/triggers/onUserCreated.ts`
+// + edited by `functions/src/callable/updateProfile.ts`.
+
+class UserProfile {
+  const UserProfile({
+    required this.uid,
+    required this.nationalId,
+    required this.name,
+    required this.phone,
+    required this.role,
+    required this.locked,
+    this.deliveryAddress,
+  });
+
+  final String uid;
+  final String? nationalId;
+  final String? name;
+  final String? phone;
+  final String role;
+  final bool locked;
+  final Map<String, dynamic>? deliveryAddress;
+
+  bool get isAdmin => role == 'admin';
+
+  factory UserProfile.fromMap(String uid, Map<String, dynamic> data) {
+    return UserProfile(
+      uid: uid,
+      nationalId: data['nationalId'] as String?,
+      name: data['name'] as String?,
+      phone: data['phone'] as String?,
+      role: (data['role'] as String?) ?? 'user',
+      locked: (data['locked'] as bool?) ?? false,
+      deliveryAddress: (data['deliveryAddress'] as Map?)?.cast<String, dynamic>(),
+    );
+  }
+}
