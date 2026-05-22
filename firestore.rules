@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// DroneAid Firestore security rules.
+// Mirrors design-spec §9. Direct writes to mutable collections are DENIED;
+// all state-changing actions must go through callable Cloud Functions.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc(request.auth.uid).role == 'admin';
+    }
+
+    function isUnchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    // ── users/{uid} ──────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+
+      // Creation happens via onUserCreated trigger, never client-side.
+      allow create: if false;
+
+      // Profile fields the user may edit on themselves.
+      // role and locked may only be changed by admin.
+      allow update:
+        if (isSelf(uid)
+              && isUnchanged('role')
+              && isUnchanged('locked')
+              && isUnchanged('nationalId')
+              && isUnchanged('createdAt'))
+        || isAdmin();
+
+      allow delete: if false;
+
+      // ── notifications subcollection ────────────────────────────────────
+      match /notifications/{nid} {
+        allow read: if isSelf(uid);
+        // Functions write; client may only patch readAt on its own notifications.
+        allow update: if isSelf(uid)
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['readAt']);
+        allow create, delete: if false;
+      }
+    }
+
+    // ── catalog/{itemId} ─────────────────────────────────────────────────
+    match /catalog/{itemId} {
+      allow read: if isSignedIn();
+      // All mutations go through callable functions.
+      allow write: if false;
+    }
+
+    // ── requests/{reqId} ─────────────────────────────────────────────────
+    match /requests/{reqId} {
+      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid)
+                  || isAdmin();
+      // Direct writes denied. submitRequest / approveRequest / etc. create + mutate.
+      allow write: if false;
+    }
+
+    // ── drones/{droneId} ─────────────────────────────────────────────────
+    match /drones/{droneId} {
+      allow read: if isSignedIn();
+      // Maintenance toggles + tickFlights happen via Functions.
+      allow write: if false;
+    }
+
+    // ── flights/{flightId} ───────────────────────────────────────────────
+    match /flights/{flightId} {
+      // Owners of the linked request + admins may read.
+      allow read: if isSignedIn()
+                  && (
+                    isAdmin()
+                    || (exists(/databases/$(database)/documents/requests/$(resource.data.requestId))
+                        && get(/databases/$(database)/documents/requests/$(resource.data.requestId))
+                              .data.userId == request.auth.uid)
+                  );
+      // Only Functions write.
+      allow write: if false;
+    }
+
+    // ── weather/current (single doc) ─────────────────────────────────────
+    match /weather/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}

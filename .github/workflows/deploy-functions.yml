@@ -7,7 +7,9 @@ on:
       - 'functions/**'
       - 'firebase.json'
 
-# Stub — finalize on Day 1 after Firebase project is created.
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -16,9 +18,25 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      # TODO Day 1: setup-node 20; npm ci in functions/; install firebase-tools.
-      # TODO Day 1: write $FIREBASE_SERVICE_ACCOUNT to file; export GOOGLE_APPLICATION_CREDENTIALS.
-      # TODO Day 1: firebase deploy --only functions --project csc291-drone-relief --non-interactive
-      - run: echo "TODO Day 1 — wire firebase deploy --only functions"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+      - name: Install dependencies
+        working-directory: functions
+        run: npm ci
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
+      - name: Write service-account key
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT secret is empty."
+            exit 1
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+      - name: Deploy
+        run: firebase deploy --only functions --project csc291-drone-relief --non-interactive

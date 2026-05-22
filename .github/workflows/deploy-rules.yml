@@ -6,17 +6,32 @@ on:
     paths:
       - 'firestore.rules'
       - 'firestore.indexes.json'
+      - 'firebase.json'
 
-# Stub — finalize on Day 1 after Firebase project is created.
+concurrency:
+  group: deploy-rules
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: firebase deploy --only firestore:rules,firestore:indexes
+    name: firebase deploy --only firestore
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v4
-      # TODO Day 1: install firebase-tools, write service account, deploy.
-      - run: echo "TODO Day 1 — wire firebase deploy --only firestore:rules,firestore:indexes"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g firebase-tools
+      - name: Write service-account key
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT secret is empty."
+            exit 1
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+      - name: Deploy
+        run: firebase deploy --only firestore:rules,firestore:indexes --project csc291-drone-relief --non-interactive

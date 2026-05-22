@@ -6,35 +6,80 @@ on:
   push:
     branches: [main]
 
-# Stub workflow — jobs declared but no-op until app/ and functions/ scaffolding lands on Day 1.
-# Replace each `echo TODO` step with the real command listed in the comment above it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   flutter-test:
     name: Flutter analyze + test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
-      # TODO Day 1: uses: subosito/flutter-action@v2 with flutter-version: '3.x'
-      # TODO Day 1: flutter pub get && flutter analyze && flutter test
-      - run: echo "TODO Day 1 — wire flutter analyze + test in app/"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+          cache: true
+      - name: Generate platform dirs if missing
+        run: |
+          if [ ! -d android ] || [ ! -d ios ]; then
+            flutter create . --platforms=android,ios --org com.kmutt.droneaid --project-name droneaid
+          fi
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test --coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flutter-coverage
+          path: app/coverage/lcov.info
 
   functions-test:
     name: Cloud Functions lint + test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
     steps:
       - uses: actions/checkout@v4
-      # TODO Day 1: uses: actions/setup-node@v4 with node-version: 20
-      # TODO Day 1: cd functions && npm ci && npm run lint && npm test
-      - run: echo "TODO Day 1 — wire npm ci + lint + test in functions/"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --ci --coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: functions-coverage
+          path: functions/coverage
 
   rules-test:
     name: Firestore rules emulator test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
     steps:
       - uses: actions/checkout@v4
-      # TODO Day 1: setup-node + firebase-tools + emulator:exec rules test
-      - run: echo "TODO Day 1 — firebase emulators:exec rules unit tests"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm install -g firebase-tools
+      - run: firebase emulators:exec --only firestore "npm run test -- --ci --testPathPattern __rules_tests__"
 
   secrets-scan:
     name: gitleaks secret scan
@@ -43,17 +88,63 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # TODO Day 1: uses: gitleaks/gitleaks-action@v2
-      - run: echo "TODO Day 1 — gitleaks against diff"
+      - uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --no-banner --redact --source . --verbose
 
   log-presence:
     name: Agent log presence
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # TODO Day 1: python script that resolves PR author → handle via docs/agent-logs/README.md table,
-      # then fails if any non-doc/-non-meta source file changed AND no new *.jsonl appears under
-      # docs/agent-logs/<handle>/ in the PR diff.
-      - run: echo "TODO Day 1 — implement log-presence gate"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Check that PR author committed a session log
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import os, re, subprocess, sys
+          author = os.environ.get("PR_AUTHOR", "")
+          base = os.environ.get("BASE_SHA", "")
+          head = os.environ.get("HEAD_SHA", "")
+
+          # Resolve GitHub handle → folder name via docs/agent-logs/README.md table.
+          mapping = {}
+          for line in open("docs/agent-logs/README.md", encoding="utf-8"):
+              m = re.match(r"\|\s*\w+\s*\|\s*`?(\w+)`?\s*\|\s*@?([\w-]+)\s*\|", line)
+              if m:
+                  mapping[m.group(2).lower()] = m.group(1).lower()
+
+          folder = mapping.get(author.lower())
+          if not folder:
+              print(f"::warning::No agent-logs folder mapped to @{author}. Skipping log-presence check.")
+              sys.exit(0)
+
+          diff = subprocess.check_output(
+              ["git", "diff", "--name-only", base, head], text=True,
+          ).splitlines()
+
+          touched_source = [
+              p for p in diff
+              if not p.startswith("docs/")
+              and not p.startswith(".github/")
+              and not p.startswith(".claude/")
+              and p
+          ]
+          new_logs = [p for p in diff if p.startswith(f"docs/agent-logs/{folder}/") and p.endswith(".jsonl")]
+
+          if touched_source and not new_logs:
+              print(f"::error::PR touches source files but does not include a new docs/agent-logs/{folder}/*.jsonl session log.")
+              print("Touched:")
+              for p in touched_source:
+                  print(f"  {p}")
+              sys.exit(1)
+          print(f"log-presence OK ({len(new_logs)} new log(s)).")
+          PY
