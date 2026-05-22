@@ -86,3 +86,4 @@ lcov.info
 
 # ── Local helper script env ──
 .drone-aid.env
+.playwright-mcp/
