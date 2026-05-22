@@ -2,12 +2,17 @@ rules_version = '2';
 
 // DroneAid Firestore security rules.
 // Mirrors design-spec §9. Direct writes to mutable collections are DENIED;
-// all state-changing actions must go through callable Cloud Functions.
+// all state-changing actions must go through callable Cloud Functions, which
+// use the Admin SDK (bypassing rules) but enforce their own auth + Zod-validated
+// payload checks (see functions/src/lib/roles.ts and each callable).
+//
+// Auth model: Firebase Auth email/password where email = `<nationalId>@drone-aid.local`.
+// `users/{uid}.role` is the source of truth for admin vs user role.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers ──────────────────────────────────────────────────────────
+    // ─── Helpers ────────────────────────────────────────────────────────────
     function isSignedIn() {
       return request.auth != null;
     }
@@ -28,15 +33,18 @@ service cloud.firestore {
       return request.resource.data[field] == resource.data[field];
     }
 
-    // ── users/{uid} ──────────────────────────────────────────────────────
+    // ─── users/{uid} ────────────────────────────────────────────────────────
+    // Profile docs. `onUserCreated` Auth trigger provisions on first sign-in.
     match /users/{uid} {
       allow read: if isSelf(uid) || isAdmin();
 
-      // Creation happens via onUserCreated trigger, never client-side.
+      // Creation happens via the onUserCreated Auth trigger (Admin SDK,
+      // bypasses rules). No client may ever create a user profile directly.
       allow create: if false;
 
-      // Profile fields the user may edit on themselves.
-      // role and locked may only be changed by admin.
+      // Self-edit allowed for free-form profile fields. Admin-only fields
+      // (role, locked, nationalId, createdAt, fcmTokens written by FCM
+      // bootstrap) are guarded with isUnchanged() pinning.
       allow update:
         if (isSelf(uid)
               && isUnchanged('role')
@@ -47,57 +55,72 @@ service cloud.firestore {
 
       allow delete: if false;
 
-      // ── notifications subcollection ────────────────────────────────────
+      // ── notifications subcollection ─────────────────────────────────────
+      // Functions write notifications (server-side fan-out). Client may only
+      // patch its own `readAt` to mark as read.
       match /notifications/{nid} {
         allow read: if isSelf(uid);
-        // Functions write; client may only patch readAt on its own notifications.
+
         allow update: if isSelf(uid)
                       && request.resource.data.diff(resource.data).affectedKeys()
                            .hasOnly(['readAt']);
+
         allow create, delete: if false;
       }
     }
 
-    // ── catalog/{itemId} ─────────────────────────────────────────────────
+    // ─── catalog/{itemId} ───────────────────────────────────────────────────
+    // Public-ish to any signed-in user (P-U-03 needs the active list).
+    // All mutations (createCatalogItem, restockItem, toggleCatalogActive)
+    // route through callables.
     match /catalog/{itemId} {
       allow read: if isSignedIn();
-      // All mutations go through callable functions.
       allow write: if false;
     }
 
-    // ── requests/{reqId} ─────────────────────────────────────────────────
+    // ─── requests/{reqId} ───────────────────────────────────────────────────
+    // Owner reads own; admin reads all. Writes via submitRequest /
+    // cancelRequest / approveRequest / rejectRequest / assignDrone /
+    // confirmDelivery callables.
     match /requests/{reqId} {
-      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid)
-                  || isAdmin();
-      // Direct writes denied. submitRequest / approveRequest / etc. create + mutate.
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow write: if false;
     }
 
-    // ── drones/{droneId} ─────────────────────────────────────────────────
+    // ─── drones/{droneId} ───────────────────────────────────────────────────
+    // Read-only for all signed-in users (so users can show "DRN-002" on the
+    // tracking screen). Writes via toggleDroneMaintenance / toggleDroneOffline
+    // and the tickFlights scheduled function.
     match /drones/{droneId} {
       allow read: if isSignedIn();
-      // Maintenance toggles + tickFlights happen via Functions.
       allow write: if false;
     }
 
-    // ── flights/{flightId} ───────────────────────────────────────────────
+    // ─── flights/{flightId} ─────────────────────────────────────────────────
+    // The owning user reads (for tracking) and admin reads everything.
+    // `userId` is denormalized onto the flight doc (see assignDrone callable)
+    // so we don't need a second `get()` to find the requesting user — that
+    // saves a billable read per rule check.
     match /flights/{flightId} {
-      // Owners of the linked request + admins may read.
-      allow read: if isSignedIn()
-                  && (
-                    isAdmin()
-                    || (exists(/databases/$(database)/documents/requests/$(resource.data.requestId))
-                        && get(/databases/$(database)/documents/requests/$(resource.data.requestId))
-                              .data.userId == request.auth.uid)
-                  );
-      // Only Functions write.
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow write: if false;
     }
 
-    // ── weather/current (single doc) ─────────────────────────────────────
+    // ─── weather/{docId} ────────────────────────────────────────────────────
+    // Single doc `weather/current`. Read by everyone (status pill + sim math),
+    // written only by the setWeather admin callable.
     match /weather/{docId} {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    // ─── Deny-all fallback ──────────────────────────────────────────────────
+    // Any path not matched above is locked. Prevents accidental exposure when
+    // a new collection ships without a rule update.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
