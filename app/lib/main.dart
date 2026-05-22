@@ -10,8 +10,10 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/auth/auth_providers.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'core/widgets/auth_splash.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -45,6 +47,11 @@ class DroneAidApp extends ConsumerWidget {
       darkTheme: buildDarkTheme(),
       themeMode: ThemeMode.system,
       routerConfig: router,
+      builder: (context, child) {
+        final auth = ref.watch(authStateProvider);
+        if (auth.isLoading) return const AuthSplash();
+        return child ?? const SizedBox.shrink();
+      },
     );
   }
 }
