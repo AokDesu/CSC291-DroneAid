@@ -58,7 +58,7 @@ export const approveRequest = onCall(async (req) => {
   const droneSnap = await db.collection("drones").where("status", "==", "idle").get();
   const dest = (totals.deliveryAddress as { lat: number; lng: number });
   const eligible = droneSnap.docs
-    .map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }))
+    .map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown> & { id: string }))
     .filter((d) => {
       const base = d.baseLocation as { lat: number; lng: number } | undefined;
       const maxPayload = (d.maxPayloadKg as number | undefined) ?? 0;

@@ -18,6 +18,7 @@ desktop.ini
 .claude/settings.local.json
 **/.claude/*.local.*
 .claude/cache/
+.claude/scheduled_tasks.lock
 
 # ── Secrets ──
 *.env

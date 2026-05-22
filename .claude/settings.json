@@ -38,5 +38,17 @@
       "Bash(git push -f *)",
       "Bash(firebase deploy *)"
     ]
+  },
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/copy-claude-session.sh\""
+          }
+        ]
+      }
+    ]
   }
 }
