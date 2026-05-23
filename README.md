@@ -136,7 +136,7 @@ For Claude Code / coding agents: read in this order before writing any code —
 
 ### Daily run loop
 
-**One-shot (recommended)** — starts emulators, seeds them, runs the app, tears everything down on Ctrl-C:
+**One-shot (recommended)** — starts emulators, seeds on first run, runs the app, tears everything down on Ctrl-C. Emulator state persists between runs in `./.emulator-data/` (gitignored).
 
 ```bash
 # Linux / macOS
@@ -145,6 +145,14 @@ For Claude Code / coding agents: read in this order before writing any code —
 # Windows (PowerShell)
 .\scripts\dev.ps1
 ```
+
+- **First run**: no `./.emulator-data/` yet → seeds run, state exports to that dir on Ctrl-C.
+- **Subsequent runs**: imports from `./.emulator-data/`, **skips seed**, runs app. Accounts you registered last session, requests you submitted, drones, etc. all still there.
+- **Wipe + reseed** (for a clean slate):
+  ```bash
+  rm -rf .emulator-data       # PowerShell: Remove-Item -Recurse -Force .\.emulator-data
+  ./scripts/dev.sh             # next run reseeds
+  ```
 
 Pass through to `flutter run`: e.g. `./scripts/dev.sh -d emulator-5554`.
 
