@@ -68,6 +68,11 @@ dist/
 firebase-debug*.log
 functions/lib/
 
+# Persisted Firebase Emulator Suite state (scripts/dev.{sh,ps1} uses
+# --import / --export-on-exit). Contains seeded Auth users + Firestore
+# docs; machine-local, never commit.
+.emulator-data/
+
 # ── Python ──
 __pycache__/
 *.pyc

@@ -97,7 +97,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Check that PR author committed a session log
+      - name: Check that PR author has a session log for the latest commit date
         env:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -105,6 +105,8 @@ jobs:
         run: |
           python - <<'PY'
           import os, re, subprocess, sys
+          from pathlib import Path
+
           author = os.environ.get("PR_AUTHOR", "")
           base = os.environ.get("BASE_SHA", "")
           head = os.environ.get("HEAD_SHA", "")
@@ -124,7 +126,6 @@ jobs:
           diff = subprocess.check_output(
               ["git", "diff", "--name-only", base, head], text=True,
           ).splitlines()
-
           touched_source = [
               p for p in diff
               if not p.startswith("docs/")
@@ -132,13 +133,37 @@ jobs:
               and not p.startswith(".claude/")
               and p
           ]
-          new_logs = [p for p in diff if p.startswith(f"docs/agent-logs/{folder}/") and p.endswith(".jsonl")]
+          if not touched_source:
+              print("log-presence OK (no source files touched).")
+              sys.exit(0)
 
-          if touched_source and not new_logs:
-              print(f"::error::PR touches source files but does not include a new docs/agent-logs/{folder}/*.jsonl session log.")
+          # Relaxed rule: require a log file whose YYYY-MM-DD prefix matches the
+          # latest commit's author date. A single log can satisfy multiple PRs
+          # cut from the same day (e.g. small follow-ups), so we no longer
+          # require the log to appear in this PR's diff.
+          commit_date = subprocess.check_output(
+              ["git", "show", "-s", "--format=%ad", "--date=format:%Y-%m-%d", head],
+              text=True,
+          ).strip()
+
+          folder_path = Path(f"docs/agent-logs/{folder}")
+          if not folder_path.is_dir():
+              print(f"::error::No log folder at {folder_path} for @{author}.")
+              sys.exit(1)
+
+          today_logs = sorted(
+              p.name for p in folder_path.glob("*.jsonl")
+              if p.name.startswith(commit_date)
+          )
+
+          if not today_logs:
+              print(f"::error::PR touches source files but @{author} has no docs/agent-logs/{folder}/{commit_date}_*.jsonl session log.")
+              print(f"Latest commit ({head[:7]}) authored {commit_date}; expected at least one log file with that date prefix.")
               print("Touched:")
               for p in touched_source:
                   print(f"  {p}")
+              print("To fix: run scripts/copy-claude-session.sh (or wait for the SessionEnd hook) and commit the resulting .jsonl on this branch.")
               sys.exit(1)
-          print(f"log-presence OK ({len(new_logs)} new log(s)).")
+
+          print(f"log-presence OK ({len(today_logs)} log(s) for {commit_date}: {', '.join(today_logs)}).")
           PY

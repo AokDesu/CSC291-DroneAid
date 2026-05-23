@@ -23,7 +23,7 @@ const ADMIN_NATIONAL_ID = "1100000000008";
 
 const ADMINS: SeedAdmin[] = [
   {
-    uid: "admin-aok",
+    uid: "droneaid-admin",
     nationalId: ADMIN_NATIONAL_ID,
     name: "Drone-Aid Admin",
     email: `${ADMIN_NATIONAL_ID}@drone-aid.local`,

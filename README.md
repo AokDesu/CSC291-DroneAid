@@ -136,14 +136,50 @@ For Claude Code / coding agents: read in this order before writing any code —
 
 ### Daily run loop
 
-In one terminal — start the local backend:
+**One-shot runner** — starts emulators, waits for them to be ready, seeds on first run, then runs the app concurrently. Ctrl-C tears everything down. Emulator state persists between runs in `./.emulator-data/` (gitignored).
+
 ```bash
-firebase emulators:start --only auth,firestore,functions
+bun scripts/dev.ts
 ```
+
+First time only — install Bun once per machine:
+
+```bash
+# macOS / Linux
+curl -fsSL https://bun.sh/install | bash
+
+# Windows (PowerShell)
+powershell -c "irm bun.sh/install.ps1 | iex"
+
+# Or via npm (cross-platform):
+npm install -g bun
+```
+
+- **First run**: no `./.emulator-data/` yet → seeds run, state exports to that dir on Ctrl-C.
+- **Subsequent runs**: imports from `./.emulator-data/`, **skips seed**, runs app. Accounts you registered last session, requests you submitted, drones, etc. all still there.
+- **Wipe + reseed** (for a clean slate):
+  ```bash
+  rm -rf .emulator-data       # PowerShell: Remove-Item -Recurse -Force .\.emulator-data
+  bun scripts/dev.ts          # next run reseeds
+  ```
+
+Pass through to `flutter run`: e.g. `bun scripts/dev.ts -d emulator-5554`.
+
 Emulator UI at <http://127.0.0.1:4000>.
 
-In another terminal — start the app:
+**Manual (two terminals)** — if you want the emulator running across multiple `flutter run` invocations:
+
 ```bash
+# Terminal 1 — backend:
+firebase emulators:start --only auth,firestore,functions
+
+# Terminal 2 — seed once (only after emulator is up):
+cd functions && GCLOUD_PROJECT=droneaid-csc291 \
+  FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
+  FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
+  npm run seed
+
+# Terminal 3 — app:
 cd app && flutter run -d <device-id>
 # flutter devices    # to list connected devices/emulators
 ```
