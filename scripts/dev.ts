@@ -11,7 +11,8 @@
 //   bun scripts/dev.ts -d <device-id>     # pass through to flutter run
 //
 // To wipe persisted emulator state and reseed from scratch:
-//   rm -rf .emulator-data
+//   rm -rf .emulator-data          # macOS/Linux
+//   Remove-Item -Recurse -Force .emulator-data   # Windows PowerShell
 //   bun scripts/dev.ts
 
 import { existsSync, rmSync } from "node:fs";
@@ -23,6 +24,11 @@ const APP_DIR = resolve(REPO_ROOT, "app");
 const FUNCTIONS_DIR = resolve(REPO_ROOT, "functions");
 const EMU_DATA = resolve(REPO_ROOT, ".emulator-data");
 const FLUTTER_ARGS = process.argv.slice(2);
+
+// Windows ships npm/npx/firebase/flutter as .cmd shims; Bun.spawn won't resolve
+// the bare name. node.exe is on PATH directly, so it stays as-is.
+const IS_WIN = process.platform === "win32";
+const bin = (name: string) => (IS_WIN ? `${name}.cmd` : name);
 
 const FIRESTORE_PORT = 8080;
 const AUTH_PORT = 9099;
@@ -39,7 +45,7 @@ console.log(`[dev] emulator UI will be at http://127.0.0.1:${UI_PORT}`);
 // this codebase (~1s) and avoids the "I edited a .ts but my callable didn't
 // change" footgun.
 console.log("[dev] building functions (tsc)…");
-const buildOnce = Bun.spawn(["npm", "run", "build"], {
+const buildOnce = Bun.spawn([bin("npm"), "run", "build"], {
   cwd: FUNCTIONS_DIR,
   env,
   stdout: "inherit",
@@ -57,7 +63,7 @@ const buildOnce = Bun.spawn(["npm", "run", "build"], {
 // lib/*.js. The Firebase functions emulator already watches lib/ and reloads
 // on change, so this gives live-reload of Cloud Functions.
 console.log("[dev] starting tsc --watch in background…");
-const tscWatch = Bun.spawn(["npx", "tsc", "--watch", "--preserveWatchOutput"], {
+const tscWatch = Bun.spawn([bin("npx"), "tsc", "--watch", "--preserveWatchOutput"], {
   cwd: FUNCTIONS_DIR,
   env,
   stdout: "inherit",
@@ -71,7 +77,7 @@ const emuArgs = [
   "--export-on-exit", EMU_DATA,
 ];
 
-const emu = Bun.spawn(["firebase", ...emuArgs], {
+const emu = Bun.spawn([bin("firebase"), ...emuArgs], {
   cwd: FUNCTIONS_DIR,
   env,
   stdout: "inherit",
@@ -79,13 +85,31 @@ const emu = Bun.spawn(["firebase", ...emuArgs], {
   stdin: "inherit",
 });
 
+// On Windows, Bun.spawn's kill() maps to TerminateProcess — no graceful Ctrl-C.
+// When the user presses Ctrl-C in the terminal, Windows already delivers
+// CTRL_C_EVENT to every child sharing the console (including the firebase
+// emulator), so --export-on-exit fires from the OS-level signal and our
+// taskkill below becomes a no-op on an already-exiting pid. For the
+// flutter-exits-normally path we accept a /F kill — the previous run's export
+// is still on disk.
+const killTree = (pid: number) => {
+  if (IS_WIN) {
+    try { Bun.spawnSync(["taskkill", "/pid", String(pid), "/T", "/F"]); } catch {}
+  }
+};
+
 let shuttingDown = false;
 const shutdown = async (code = 0) => {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log("\n[dev] shutting down…");
-  try { tscWatch.kill("SIGTERM"); } catch {}
-  try { emu.kill("SIGINT"); } catch {}
+  if (IS_WIN) {
+    killTree(tscWatch.pid);
+    killTree(emu.pid);
+  } else {
+    try { tscWatch.kill("SIGTERM"); } catch {}
+    try { emu.kill("SIGINT"); } catch {}
+  }
   await emu.exited;
   process.exit(code);
 };
@@ -142,7 +166,7 @@ if (!hasData) {
 }
 
 console.log("[dev] starting flutter run…");
-const flutter = Bun.spawn(["flutter", "run", ...FLUTTER_ARGS], {
+const flutter = Bun.spawn([bin("flutter"), "run", ...FLUTTER_ARGS], {
   cwd: APP_DIR,
   env,
   stdout: "inherit",
