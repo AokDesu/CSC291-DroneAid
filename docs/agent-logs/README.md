@@ -36,7 +36,9 @@ When real GitHub handles are known, update this table and `.github/CODEOWNERS`.
    - Windows (persistent): `setx DRONE_AID_HANDLE aok`
    - macOS / Linux: add `export DRONE_AID_HANDLE=aok` to `~/.zshrc` or `~/.bashrc`.
 3. Add a `SessionEnd` hook to your **personal** Claude Code settings file
-   (`~/.claude/settings.json` on macOS/Linux; `%USERPROFILE%\.claude\settings.json` on Windows):
+   (`~/.claude/settings.json` on macOS/Linux; `%USERPROFILE%\.claude\settings.json` on Windows). Replace the path with **your own clone path**.
+
+   **Windows (PowerShell):**
 
    ```json
    {
@@ -47,7 +49,7 @@ When real GitHub handles are known, update this table and `.github/CODEOWNERS`.
            "hooks": [
              {
                "type": "command",
-               "command": "pwsh -ExecutionPolicy Bypass -File \"D:/projects/csc291/scripts/copy-claude-session.ps1\""
+               "command": "pwsh -ExecutionPolicy Bypass -File \"C:\\Users\\<you>\\Projects\\CSC291-DroneAid\\scripts\\copy-claude-session.ps1\""
              }
            ]
          }
@@ -56,12 +58,35 @@ When real GitHub handles are known, update this table and `.github/CODEOWNERS`.
    }
    ```
 
-   On macOS / Linux replace the `command` with:
-   ```
-   bash /absolute/path/to/repo/scripts/copy-claude-session.sh
+   `pwsh` is PowerShell 7+ (preferred). If only Windows PowerShell 5 is installed, use `powershell` instead of `pwsh`.
+
+   **macOS / Linux (bash):**
+
+   ```json
+   {
+     "hooks": {
+       "SessionEnd": [
+         {
+           "matcher": "",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "bash /home/<you>/Projects/CSC291-DroneAid/scripts/copy-claude-session.sh"
+             }
+           ]
+         }
+       ]
+     }
+   }
    ```
 
 4. End a Claude Code session and verify a new `*.jsonl` appeared under `docs/agent-logs/<your-folder>/`.
+
+### Troubleshooting (Windows)
+
+- **"No Claude Code session dir found for this clone"** — the script couldn't locate `%USERPROFILE%\.claude\projects\<encoded-path>\`. The encoding is your absolute clone path with every `\`, `/`, and `:` replaced by `-`. Example: `C:\Users\Belle\Projects\CSC291-DroneAid` → `C--Users-Belle-Projects-CSC291-DroneAid`. Open File Explorer at `%USERPROFILE%\.claude\projects\` and confirm a folder matching that pattern exists; if not, your Claude Code may not have run in this clone yet — start a session first.
+- **`pwsh` not found** — replace `pwsh` with `powershell` in the hook JSON.
+- **Python not found** — install Python 3.13+ from python.org and ensure `py` (the launcher) is on PATH. The script prefers `py`, falls back to `python`.
 
 ## Redaction
 
@@ -91,10 +116,22 @@ git push
 
 `.github/workflows/ci.yml` runs a `log-presence` job that fails any PR that:
 
-- touches source files (anything outside `docs/` and `.github/`)
-- by an author whose folder did not gain at least one new `.jsonl` in the PR diff.
+- touches source files (anything outside `docs/`, `.github/`, `.claude/`)
+- by an author whose `docs/agent-logs/<folder>/` does **not** contain a `*.jsonl` whose filename starts with the PR's latest commit date (`YYYY-MM-DD`).
 
-That gate is the enforcement mechanism for the class rule.
+The rule is per-day, not per-PR: one log flush per day satisfies every PR you open that day. If you forget, the gate's error message tells you which date + folder to fix.
+
+**Manual flush** (when the SessionEnd hook hasn't fired yet, e.g. mid-session PR):
+
+```bash
+# macOS / Linux
+bash scripts/copy-claude-session.sh
+
+# Windows PowerShell
+pwsh -ExecutionPolicy Bypass -File scripts\copy-claude-session.ps1
+```
+
+Then commit the resulting `.jsonl` and push.
 
 ## Auto-generated index
 
