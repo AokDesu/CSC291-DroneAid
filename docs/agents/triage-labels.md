@@ -13,3 +13,25 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
 Edit the right-hand column to match whatever vocabulary you actually use.
+
+## Domain labels (also created in the repo)
+
+Layered alongside the triage labels for filtering:
+
+| Label | Use for |
+|---|---|
+| `auth` | Identity / login / register / role guard |
+| `request` | Request domain (catalog, queue, history, admin requests, inventory) |
+| `tracking` | Tracking, maps, FCM, notifications, control map |
+| `fleet` | Drone fleet (list, detail, weather) |
+| `widget` | Shared UI widgets |
+| `infra` | Backend, build, CI, scripts, ops |
+| `demo` | Demo prep (seed dataset, screenshots, screencast) |
+
+Useful filter combos:
+
+```bash
+gh issue list --label "ready-for-agent,widget"     # widgets ready to start
+gh issue list --label "ready-for-agent,tracking"   # tracking work
+gh issue list --label "ready-for-human"            # needs human (e.g. demo screencast)
+```
