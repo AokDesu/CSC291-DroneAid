@@ -67,7 +67,7 @@ Domains, dependencies, and RACI per page in [`docs/00-team-raci.md`](docs/00-tea
 ├── .claude/                              Project-scoped Claude Code config
 │   ├── agents/                           architect / engineer / qa / security-reviewer
 │   └── settings.json                     Permissions + SessionEnd hook
-├── .github/                              CODEOWNERS, PR template, CI + deploy workflows
+├── .github/                              CODEOWNERS, PR template, CI workflows
 ├── .gitignore
 ├── LICENSE                               MIT
 └── README.md                             (you are here)
