@@ -34,6 +34,8 @@ export const updateProfile = onCall(async (req) => {
   if (payload.prefs !== undefined) patch.prefs = payload.prefs;
 
   if (Object.keys(patch).length === 0) return { ok: true };
-  await db.doc(`users/${uid}`).update(patch);
+  // set+merge instead of update so we don't throw when onUserCreated hasn't
+  // landed yet — register → callable RTT can beat the Auth trigger.
+  await db.doc(`users/${uid}`).set(patch, { merge: true });
   return { ok: true };
 });

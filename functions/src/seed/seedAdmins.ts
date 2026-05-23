@@ -16,12 +16,17 @@ interface SeedAdmin {
   phone: string;
 }
 
+// Checksum-valid Thai national ID per V-01. The client-side validator
+// rejects IDs that fail the checksum, so admin IDs MUST be valid or the
+// admin cannot log in via P-U-01. Stem "110000000000" → check digit 8.
+const ADMIN_NATIONAL_ID = "1100000000008";
+
 const ADMINS: SeedAdmin[] = [
   {
     uid: "admin-aok",
-    nationalId: "1100000000001",
+    nationalId: ADMIN_NATIONAL_ID,
     name: "Aok Lead",
-    email: "1100000000001@drone-aid.local",
+    email: `${ADMIN_NATIONAL_ID}@drone-aid.local`,
     password: "Admin#001",
     phone: "+66810000001",
   },

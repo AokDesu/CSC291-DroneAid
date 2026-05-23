@@ -183,11 +183,11 @@ class _DemoAccountsCard extends StatelessWidget {
             ),
             SizedBox(height: 4),
             Text(
-              'Mali (user)   1100000000101 · Demo#101',
+              'Mali (user)   1100000000105 · Demo#101',
               style: TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
             Text(
-              'Aok (admin)   1100000000001 · Admin#001',
+              'Aok (admin)   1100000000008 · Admin#001',
               style: TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ],
