@@ -5,14 +5,16 @@
 #
 # Setup:
 #   1. setx DRONE_AID_HANDLE aok       # one of: aok belle bew poom tawan
-#   2. Add a SessionEnd hook to ~/.claude/settings.json that calls this script.
+#      (reopen terminal so the new env var is picked up)
+#   2. Add a SessionEnd hook to %USERPROFILE%\.claude\settings.json that calls
+#      this script. See docs/agent-logs/README.md for the JSON snippet.
 #
 # Idempotent — running twice on the same session overwrites the same target file.
 
 $ErrorActionPreference = "Stop"
 
 # Resolve repo root (the directory two levels above this script).
-$RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 # Per-dev handle (folder name under docs/agent-logs).
 $Handle = $env:DRONE_AID_HANDLE
@@ -21,13 +23,35 @@ if (-not $Handle) {
     exit 1
 }
 
-# Per-project Claude Code session directory.
-# The project path D:\projects\csc291 is encoded as 'D--projects-csc291' by Claude Code.
-$ProjectDirEncoded = "D--projects-csc291"
-$SessionDir = Join-Path $env:USERPROFILE ".claude\projects\$ProjectDirEncoded"
+# Per-project Claude Code session directory. Claude Code encodes the absolute
+# repo path by replacing each '/', '\', and ':' with '-'. So a clone at
+# C:\Users\Belle\Projects\CSC291-DroneAid becomes
+# C--Users-Belle-Projects-CSC291-DroneAid under %USERPROFILE%\.claude\projects.
+$Encoded = ($RepoRoot -replace '[\\:/]', '-')
+$SessionDir = Join-Path $env:USERPROFILE ".claude\projects\$Encoded"
+
+# Fallback 1: legacy hard-coded encoding from the original template (kept for
+# back-compat with anyone whose clone was already wired up to D:\projects\csc291).
+if (-not (Test-Path $SessionDir)) {
+    $Fallback = Join-Path $env:USERPROFILE ".claude\projects\D--projects-csc291"
+    if (Test-Path $Fallback) { $SessionDir = $Fallback }
+}
+
+# Fallback 2: if neither path exists, glob the newest folder under
+# .claude\projects\ whose name contains this repo's leaf directory. Handy for
+# renamed clones (e.g. CSC291-DroneAid-belle-fork).
+if (-not (Test-Path $SessionDir)) {
+    $RepoLeaf = Split-Path $RepoRoot -Leaf
+    $Candidate = Get-ChildItem -Path (Join-Path $env:USERPROFILE ".claude\projects") -Directory -ErrorAction SilentlyContinue `
+        | Where-Object { $_.Name -like "*$RepoLeaf*" } `
+        | Sort-Object LastWriteTime -Descending `
+        | Select-Object -First 1
+    if ($Candidate) { $SessionDir = $Candidate.FullName }
+}
 
 if (-not (Test-Path $SessionDir)) {
-    Write-Host "No Claude Code session dir at $SessionDir — nothing to copy."
+    Write-Host "No Claude Code session dir found for this clone."
+    Write-Host "Looked under $env:USERPROFILE\.claude\projects\ for an encoded path matching $Encoded."
     exit 0
 }
 
