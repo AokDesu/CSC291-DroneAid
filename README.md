@@ -136,9 +136,7 @@ For Claude Code / coding agents: read in this order before writing any code —
 
 ### Daily run loop
 
-**One-shot (recommended)** — starts emulators, waits for them to be ready, seeds on first run, then runs the app concurrently. Ctrl-C tears everything down. Emulator state persists between runs in `./.emulator-data/` (gitignored).
-
-Single cross-platform Bun script (preferred; works identically on Linux, macOS, Windows PowerShell):
+**One-shot runner** — starts emulators, waits for them to be ready, seeds on first run, then runs the app concurrently. Ctrl-C tears everything down. Emulator state persists between runs in `./.emulator-data/` (gitignored).
 
 ```bash
 bun scripts/dev.ts
@@ -157,22 +155,12 @@ powershell -c "irm bun.sh/install.ps1 | iex"
 npm install -g bun
 ```
 
-Shell-script fallback (if you'd rather not install Bun):
-
-```bash
-# Linux / macOS
-./scripts/dev.sh
-
-# Windows (PowerShell)
-.\scripts\dev.ps1
-```
-
 - **First run**: no `./.emulator-data/` yet → seeds run, state exports to that dir on Ctrl-C.
 - **Subsequent runs**: imports from `./.emulator-data/`, **skips seed**, runs app. Accounts you registered last session, requests you submitted, drones, etc. all still there.
 - **Wipe + reseed** (for a clean slate):
   ```bash
   rm -rf .emulator-data       # PowerShell: Remove-Item -Recurse -Force .\.emulator-data
-  ./scripts/dev.sh             # next run reseeds
+  bun scripts/dev.ts          # next run reseeds
   ```
 
 Pass through to `flutter run`: e.g. `bun scripts/dev.ts -d emulator-5554`.
