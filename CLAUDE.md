@@ -4,11 +4,15 @@
 
 ## Running the stack
 
-Single command for the full stack (emulators + seed on first run + Flutter app):
+Single command for the full stack (build + emulators + seed on first run + `tsc --watch` for live function reload + Flutter app):
 
 ```bash
 bun scripts/dev.ts
 ```
+
+Edit loop while running:
+- `.dart` → press `r` for hot reload, `R` for hot restart
+- `.ts` under `functions/src/` → tsc-watch rebuilds `lib/*.js` → functions emulator auto-reloads
 
 State persists in gitignored `./.emulator-data/` between runs. See README "Daily run loop" for prerequisites + the wipe-and-reseed escape hatch.
 
