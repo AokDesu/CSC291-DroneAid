@@ -19,14 +19,21 @@ export const onUserCreated = functions
       nationalId = user.email.slice(0, -EMAIL_SUFFIX.length);
     }
 
-    await db.doc(`users/${user.uid}`).set({
-      nationalId,
-      name: user.displayName ?? null,
-      phone: user.phoneNumber ?? null,
-      role: "user",
-      deliveryAddress: null,
-      locked: false,
-      fcmTokens: [],
-      createdAt: FieldValue.serverTimestamp(),
+    // Preserve any fields already written by a seed script. Seeds run set()
+    // immediately after createUser() and may race this trigger; without the
+    // pre-read, the trigger's "role: user" default would clobber an admin
+    // role written by seedAdmins.
+    const docRef = db.doc(`users/${user.uid}`);
+    const existing = (await docRef.get()).data() ?? {};
+
+    await docRef.set({
+      nationalId: existing.nationalId ?? nationalId,
+      name: existing.name ?? user.displayName ?? null,
+      phone: existing.phone ?? user.phoneNumber ?? null,
+      role: existing.role ?? "user",
+      deliveryAddress: existing.deliveryAddress ?? null,
+      locked: existing.locked ?? false,
+      fcmTokens: existing.fcmTokens ?? [],
+      createdAt: existing.createdAt ?? FieldValue.serverTimestamp(),
     }, { merge: true });
   });
