@@ -187,7 +187,7 @@ class _DemoAccountsCard extends StatelessWidget {
               style: TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
             Text(
-              'Aok (admin)   1100000000008 · Admin#001',
+              'Admin         1100000000008 · Admin#001',
               style: TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ],
