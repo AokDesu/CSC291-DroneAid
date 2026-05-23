@@ -1,11 +1,14 @@
 // DroneAid — Flutter app entry point.
 
+import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,12 +20,36 @@ import 'core/widgets/auth_splash.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  if (kDebugMode) {
-    await _useLocalEmulators();
-  }
-  runApp(const ProviderScope(child: DroneAidApp()));
+  // runZonedGuarded wraps Dart-side async errors so Crashlytics can record
+  // anything Flutter's own error handlers don't see (top-level async, isolate
+  // boundaries, microtask queue).
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+    // Crashlytics: collect in release only by default. In debug we want
+    // crashes to surface in the console + IDE, not get swallowed by upload.
+    // Override with --dart-define=FORCE_CRASHLYTICS=true if you need to test
+    // the upload path locally.
+    const forceCrashlytics = bool.fromEnvironment('FORCE_CRASHLYTICS', defaultValue: false);
+    await FirebaseCrashlytics.instance
+        .setCrashlyticsCollectionEnabled(!kDebugMode || forceCrashlytics);
+
+    // Send Flutter framework errors (build/layout/paint) to Crashlytics.
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    // Send uncaught platform-dispatcher errors (async gaps, native bridge).
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+
+    if (kDebugMode) {
+      await _useLocalEmulators();
+    }
+    runApp(const ProviderScope(child: DroneAidApp()));
+  }, (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  });
 }
 
 Future<void> _useLocalEmulators() async {
