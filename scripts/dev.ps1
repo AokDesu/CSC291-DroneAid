@@ -28,14 +28,14 @@ $appDir = Join-Path $repoRoot 'app'
 if (Test-Path -Path $emuData) {
   Write-Host "[dev] importing existing emulator data from $emuData"
   firebase emulators:exec `
-    --only auth,firestore,functions `
+    --only auth,firestore,functions,ui `
     --import="$emuData" `
     --export-on-exit="$emuData" `
     "cd `"$appDir`" && flutter run $flutterArgs"
 } else {
   Write-Host "[dev] no $emuData - first run, will seed and export on exit"
   firebase emulators:exec `
-    --only auth,firestore,functions `
+    --only auth,firestore,functions,ui `
     --export-on-exit="$emuData" `
     "npm run seed && cd `"$appDir`" && flutter run $flutterArgs"
 }

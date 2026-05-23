@@ -28,14 +28,14 @@ flutter_args="$*"
 if [[ -d "$emu_data" ]]; then
   echo "[dev] importing existing emulator data from $emu_data"
   firebase emulators:exec \
-    --only auth,firestore,functions \
+    --only auth,firestore,functions,ui \
     --import="$emu_data" \
     --export-on-exit="$emu_data" \
     "cd \"$repo_root/app\" && flutter run $flutter_args"
 else
   echo "[dev] no $emu_data — first run, will seed and export on exit"
   firebase emulators:exec \
-    --only auth,firestore,functions \
+    --only auth,firestore,functions,ui \
     --export-on-exit="$emu_data" \
     "npm run seed && cd \"$repo_root/app\" && flutter run $flutter_args"
 fi
