@@ -136,7 +136,28 @@ For Claude Code / coding agents: read in this order before writing any code —
 
 ### Daily run loop
 
-**One-shot (recommended)** — starts emulators, seeds on first run, runs the app, tears everything down on Ctrl-C. Emulator state persists between runs in `./.emulator-data/` (gitignored).
+**One-shot (recommended)** — starts emulators, waits for them to be ready, seeds on first run, then runs the app concurrently. Ctrl-C tears everything down. Emulator state persists between runs in `./.emulator-data/` (gitignored).
+
+Single cross-platform Bun script (preferred; works identically on Linux, macOS, Windows PowerShell):
+
+```bash
+bun scripts/dev.ts
+```
+
+First time only — install Bun once per machine:
+
+```bash
+# macOS / Linux
+curl -fsSL https://bun.sh/install | bash
+
+# Windows (PowerShell)
+powershell -c "irm bun.sh/install.ps1 | iex"
+
+# Or via npm (cross-platform):
+npm install -g bun
+```
+
+Shell-script fallback (if you'd rather not install Bun):
 
 ```bash
 # Linux / macOS
@@ -154,7 +175,7 @@ For Claude Code / coding agents: read in this order before writing any code —
   ./scripts/dev.sh             # next run reseeds
   ```
 
-Pass through to `flutter run`: e.g. `./scripts/dev.sh -d emulator-5554`.
+Pass through to `flutter run`: e.g. `bun scripts/dev.ts -d emulator-5554`.
 
 Emulator UI at <http://127.0.0.1:4000>.
 
