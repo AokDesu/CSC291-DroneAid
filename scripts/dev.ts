@@ -35,6 +35,35 @@ const env = { ...process.env, GCLOUD_PROJECT: "droneaid-csc291" };
 console.log(`[dev] ${hasData ? "importing existing emulator data" : "first run; will seed and export on exit"}`);
 console.log(`[dev] emulator UI will be at http://127.0.0.1:${UI_PORT}`);
 
+// One-shot build so the emulator never loads stale lib/*.js. tsc is fast on
+// this codebase (~1s) and avoids the "I edited a .ts but my callable didn't
+// change" footgun.
+console.log("[dev] building functions (tsc)…");
+const buildOnce = Bun.spawn(["npm", "run", "build"], {
+  cwd: FUNCTIONS_DIR,
+  env,
+  stdout: "inherit",
+  stderr: "inherit",
+});
+{
+  const code = await buildOnce.exited;
+  if (code !== 0) {
+    console.error(`[dev] initial build failed (exit ${code})`);
+    process.exit(code);
+  }
+}
+
+// Background tsc --watch so any subsequent .ts edit triggers a recompile of
+// lib/*.js. The Firebase functions emulator already watches lib/ and reloads
+// on change, so this gives live-reload of Cloud Functions.
+console.log("[dev] starting tsc --watch in background…");
+const tscWatch = Bun.spawn(["npx", "tsc", "--watch", "--preserveWatchOutput"], {
+  cwd: FUNCTIONS_DIR,
+  env,
+  stdout: "inherit",
+  stderr: "inherit",
+});
+
 const emuArgs = [
   "emulators:start",
   "--only", "auth,firestore,functions,ui",
@@ -55,6 +84,7 @@ const shutdown = async (code = 0) => {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log("\n[dev] shutting down…");
+  try { tscWatch.kill("SIGTERM"); } catch {}
   try { emu.kill("SIGINT"); } catch {}
   await emu.exited;
   process.exit(code);
@@ -91,7 +121,10 @@ console.log("[dev] emulators up");
 
 if (!hasData) {
   console.log("[dev] seeding…");
-  const seed = Bun.spawn(["npm", "run", "seed"], {
+  // Call node directly against the already-compiled lib/ to skip npm-run-seed's
+  // redundant `npm run build` (we built upfront + have tsc --watch keeping lib/
+  // current). Avoids two tsc processes racing on the same output dir.
+  const seed = Bun.spawn(["node", "lib/seed/seedAll.js"], {
     cwd: FUNCTIONS_DIR,
     env: {
       ...env,

@@ -129,14 +129,14 @@ For Claude Code / coding agents: read in this order before writing any code —
    dart pub global activate flutterfire_cli   # if not already installed
    flutterfire configure --project=droneaid-csc291 --platforms=android --yes
    ```
-6. **Build Cloud Functions** (TypeScript → JS, needed before the functions emulator can load them):
+6. **Build Cloud Functions** — *optional, only if you want to verify the toolchain before first run*. `bun scripts/dev.ts` builds + watches automatically, so most days you can skip this.
    ```bash
    cd functions && npm run build
    ```
 
 ### Daily run loop
 
-**One-shot runner** — starts emulators, waits for them to be ready, seeds on first run, then runs the app concurrently. Ctrl-C tears everything down. Emulator state persists between runs in `./.emulator-data/` (gitignored).
+**One-shot runner** — builds functions, starts emulators, waits for them to be ready, seeds on first run, runs `tsc --watch` for live function reload, then runs the app concurrently. Ctrl-C tears everything down. Emulator state persists between runs in `./.emulator-data/` (gitignored).
 
 ```bash
 bun scripts/dev.ts
@@ -167,6 +167,10 @@ Pass through to `flutter run`: e.g. `bun scripts/dev.ts -d emulator-5554`.
 
 Emulator UI at <http://127.0.0.1:4000>.
 
+**Edit loop while `dev.ts` is running**:
+- Edit a `.dart` file → press `r` in the flutter terminal for hot reload (`R` for hot restart).
+- Edit a `.ts` file under `functions/src/` → tsc-watch rebuilds `lib/*.js` → the functions emulator auto-reloads. No manual restart needed.
+
 **Manual (two terminals)** — if you want the emulator running across multiple `flutter run` invocations:
 
 ```bash
@@ -194,7 +198,7 @@ The app talks to the local emulators automatically when built in debug mode. On 
 
 ## Claude Code agent-log policy
 
-Every team member runs a `SessionEnd` hook that copies their Claude Code session JSONL into `docs/agent-logs/<handle>/`, redacted of secrets. CI gate `log-presence` blocks PRs that touch source without a matching log for the day. See [`docs/agent-logs/README.md`](docs/agent-logs/README.md).
+Every team member runs a `SessionEnd` hook that copies their Claude Code session JSONL into `docs/agent-logs/<handle>/`, redacted of secrets. CI gate `log-presence` blocks PRs that touch source unless the author's folder contains a `.jsonl` whose filename starts with the latest commit's date (`YYYY-MM-DD_*.jsonl`). One log per day satisfies every PR opened that day. See [`docs/agent-logs/README.md`](docs/agent-logs/README.md) for setup (Windows + Linux/macOS) and troubleshooting.
 
 ## License
 
