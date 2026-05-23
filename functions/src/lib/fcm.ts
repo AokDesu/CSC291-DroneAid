@@ -1,9 +1,13 @@
 // FCM fan-out helpers.
-// Stub: logs payload + sends to every token on the user/admin profile(s).
-// TODO(Aok): wire delivery-receipt cleanup of stale tokens (spec §11).
+// Sends to every token on the user/admin profile(s), then prunes tokens that
+// FCM reports as unregistered/invalid (spec §11).
 
-import { getMessaging, type MulticastMessage } from "firebase-admin/messaging";
-import { db } from "./admin";
+import {
+  getMessaging,
+  type MulticastMessage,
+  type SendResponse,
+} from "firebase-admin/messaging";
+import { db, FieldValue } from "./admin";
 
 export type NotificationPayload = {
   title: string;
@@ -12,11 +16,19 @@ export type NotificationPayload = {
   data?: Record<string, string>;
 };
 
-async function fanOut(tokens: string[], payload: NotificationPayload): Promise<void> {
-  if (tokens.length === 0) {
+type TokenRef = { uid: string; token: string };
+
+const STALE_CODES = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+]);
+
+async function fanOut(refs: TokenRef[], payload: NotificationPayload): Promise<void> {
+  if (refs.length === 0) {
     console.log("[fcm] no tokens to send to:", payload.title);
     return;
   }
+  const tokens = refs.map((r) => r.token);
   const msg: MulticastMessage = {
     tokens,
     notification: { title: payload.title, body: payload.body },
@@ -25,23 +37,52 @@ async function fanOut(tokens: string[], payload: NotificationPayload): Promise<v
   try {
     const res = await getMessaging().sendEachForMulticast(msg);
     console.log(`[fcm] sent ${res.successCount}/${tokens.length}: ${payload.title}`);
+    await pruneStaleTokens(refs, res.responses);
   } catch (e) {
     console.error("[fcm] send error", e);
   }
 }
 
+async function pruneStaleTokens(
+  refs: TokenRef[],
+  responses: SendResponse[],
+): Promise<void> {
+  const stalePerUid = new Map<string, string[]>();
+  responses.forEach((r, i) => {
+    if (r.success) return;
+    const code = r.error?.code;
+    if (!code || !STALE_CODES.has(code)) return;
+    const { uid, token } = refs[i];
+    const list = stalePerUid.get(uid) ?? [];
+    list.push(token);
+    stalePerUid.set(uid, list);
+  });
+  if (stalePerUid.size === 0) return;
+  await Promise.all(
+    Array.from(stalePerUid.entries()).map(([uid, stale]) =>
+      db.doc(`users/${uid}`).update({
+        fcmTokens: FieldValue.arrayRemove(...stale),
+      }),
+    ),
+  );
+  const total = Array.from(stalePerUid.values()).reduce((n, l) => n + l.length, 0);
+  console.log(
+    `[fcm] pruned ${total} stale token(s) across ${stalePerUid.size} user(s)`,
+  );
+}
+
 export async function sendToUser(uid: string, payload: NotificationPayload): Promise<void> {
   const snap = await db.doc(`users/${uid}`).get();
   const tokens = (snap.data()?.fcmTokens as string[] | undefined) ?? [];
-  await fanOut(tokens, payload);
+  await fanOut(tokens.map((token) => ({ uid, token })), payload);
 }
 
 export async function sendToAdmins(payload: NotificationPayload): Promise<void> {
   const snap = await db.collection("users").where("role", "==", "admin").get();
-  const tokens: string[] = [];
+  const refs: TokenRef[] = [];
   for (const doc of snap.docs) {
     const t = (doc.data().fcmTokens as string[] | undefined) ?? [];
-    tokens.push(...t);
+    for (const token of t) refs.push({ uid: doc.id, token });
   }
-  await fanOut(tokens, payload);
+  await fanOut(refs, payload);
 }
