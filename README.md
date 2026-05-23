@@ -13,7 +13,7 @@
 | Phase | Day 1 bootstrap complete · feature work in progress |
 | Deadline | **2026-06-04** |
 | App code in `app/` | ✅ runs on Android emulator; placeholder pages — feature work pending |
-| Cloud Functions in `functions/` | ✅ builds + loads in emulator (14 functions); `src/lib/*` is minimal stubs |
+| Cloud Functions in `functions/` | ✅ 14 functions wired end-to-end on emulator (callables + scheduled `tickFlights` + `onUserCreated`/`onFlightWritten` triggers); `src/lib/*` (admin, roles, fcm, geo, sim, weather) implemented |
 | Docs in `docs/` | ✅ complete |
 
 ## Team
@@ -67,7 +67,7 @@ Domains, dependencies, and RACI per page in [`docs/00-team-raci.md`](docs/00-tea
 ├── .claude/                              Project-scoped Claude Code config
 │   ├── agents/                           architect / engineer / qa / security-reviewer
 │   └── settings.json                     Permissions + SessionEnd hook
-├── .github/                              CODEOWNERS, PR template, CI + deploy workflows
+├── .github/                              CODEOWNERS, PR template, CI workflows
 ├── .gitignore
 ├── LICENSE                               MIT
 └── README.md                             (you are here)
@@ -90,7 +90,8 @@ For Claude Code / coding agents: read in this order before writing any code —
 1. `docs/superpowers/specs/2026-05-19-drone-relief-design.md` (master spec)
 2. `docs/09-page-flow-design.md` (per-page + per-flow contracts)
 3. `docs/00-team-raci.md` (ownership and dependency rules)
-4. `.claude/agents/*` (subagent role definitions)
+4. `docs/adr/` (architecture decisions — scope, dev env, widget pattern)
+5. `.claude/agents/*` (subagent role definitions)
 
 ## Setup
 
@@ -152,8 +153,8 @@ The app talks to the local emulators automatically when built in debug mode. On 
 ### Known gaps in the local stack
 
 - **`tickFlights` scheduled function does not fire under the emulator** — Firebase doesn't ship a pub/sub emulator for scheduled triggers. Invoke it manually from the Emulator UI's Functions tab when you need a tick.
-- **FCM push notifications are not delivered to the device under the emulator.** Server-side calls in `functions/src/lib/fcm.ts` still run and log; clients must mock the receive side until staging.
-- **`functions/src/lib/*` are minimal stubs** (`admin`, `roles`, `fcm`, `geo`, `sim`, `weather`). They compile and run end-to-end but are not yet feature-complete — domain owners should flesh them out per the design spec.
+- **FCM push notifications are not delivered to the device under the emulator.** Server-side calls in `functions/src/lib/fcm.ts` still run and log; clients must mock the receive side until staging. In-app inbox (`P-U-08`) is the user-visible notification surface for the demo — see `docs/adr/0002-scope-full-features-fcm-emulator-exempt.md`.
+- **No live deploy.** This is an emulator-only project; deploy workflows have been removed (see PR #7). To run against a real Firebase project later, recreate the workflows from git history and add the `FIREBASE_SERVICE_ACCOUNT` repo secret.
 
 ## Claude Code agent-log policy
 

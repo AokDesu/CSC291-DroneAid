@@ -93,8 +93,8 @@ mindmap
       7.5 Bug bash
     8. CI/CD & Logs Infra
       8.1 ci.yml (test gates)
-      8.2 deploy-functions.yml
-      8.3 deploy-rules.yml
+      8.2 ~~deploy-functions.yml~~ (deferred — emulator-only)
+      8.3 ~~deploy-rules.yml~~ (deferred — emulator-only)
       8.4 build-log-index.yml
       8.5 claude-review.yml (optional)
       8.6 gitleaks + log-presence
@@ -161,7 +161,7 @@ mindmap
 | 7.1–7.5 | Tests + integration day + bug bash | All | 3.0 |
 | **8** | **CI/CD & Logs Infra** | Aok + Belle | 2.5 |
 | 8.1 | ci.yml | Aok | 0.5 |
-| 8.2–8.3 | deploy workflows | Aok | 0.5 |
+| 8.2–8.3 | ~~deploy workflows~~ (deferred — emulator-only) | Aok | 0 |
 | 8.4 | build-log-index.yml | Aok | 0.25 |
 | 8.5 | claude-review.yml (optional) | Aok | 0.25 |
 | 8.6 | gitleaks + log-presence | Aok | 0.5 |

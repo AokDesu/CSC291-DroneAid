@@ -10,20 +10,19 @@ Concrete views of how the architecture runs: deployment, sequences, state, and d
 flowchart TB
     subgraph dev["Developer machines (×5)"]
       direction TB
-      dev1["Aok<br/>Windows<br/>+ emulator suite"]
-      dev2["Belle<br/>Mac/Win<br/>+ Flutter SDK"]
-      dev3["Bew<br/>Mac/Win<br/>+ Flutter SDK"]
-      dev4["Poom<br/>Mac/Win<br/>+ Flutter SDK"]
-      dev5["Tawan<br/>Mac/Win<br/>+ Flutter SDK"]
+      dev1["Aok (lead)<br/>Linux<br/>+ emulator suite"]
+      dev2["Belle<br/>Windows<br/>+ Flutter SDK"]
+      dev3["Bew<br/>Windows<br/>+ Flutter SDK"]
+      dev4["Poom<br/>Windows<br/>+ Flutter SDK"]
+      dev5["Tawan<br/>Windows<br/>+ Flutter SDK"]
     end
 
     subgraph github["GitHub"]
       repo["Repo: csc291<br/>main + feat/* branches"]
-      actions["GitHub Actions<br/>(ci, deploy, log-index)"]
-      secrets["Secrets:<br/>FIREBASE_SERVICE_ACCOUNT,<br/>ANTHROPIC_API_KEY (optional)"]
+      actions["GitHub Actions<br/>(ci, log-index)"]
     end
 
-    subgraph gcp["Google Cloud / Firebase project: csc291-drone-relief"]
+    subgraph gcp["Google Cloud / Firebase project (deferred — not used)<br/>droneaid-csc291"]
       auth["Firebase Auth"]
       fs["Firestore"]
       cf["Cloud Functions<br/>asia-southeast1"]
@@ -42,9 +41,6 @@ flowchart TB
     dev5 -- "git push" --> repo
 
     repo -- "PR / push main" --> actions
-    actions -- "uses" --> secrets
-    actions -- "firebase deploy --only functions" --> cf
-    actions -- "firebase deploy --only firestore:rules,indexes" --> fs
 
     sched -- "every 60s" --> cf
     cf -- "read/write" --> fs
@@ -64,7 +60,7 @@ flowchart TB
     classDef end_ fill:#d1fae5,stroke:#047857,color:#04372a
     class dev1,dev2,dev3,dev4,dev5 dev
     class auth,fs,cf,fcm,sched cloud
-    class repo,actions,secrets gh
+    class repo,actions gh
     class phone end_
 ```
 

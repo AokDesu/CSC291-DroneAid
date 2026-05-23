@@ -25,6 +25,7 @@ CSC291 group project. Drone-based relief-supply delivery simulator (Flutter + Fi
 | 8 | Implementation diagrams | [`08-implementation-diagram.md`](08-implementation-diagram.md) + [`diagrams/08-implementation-*.png`](diagrams/) | Deployment, 2 sequences, 3 state machines, ER |
 | 9 | Page + flow design (build target) | [`09-page-flow-design.md`](09-page-flow-design.md) | Every screen + every flow with ASCII mockups, Gherkin AC, validation, errors, theme tokens, seed data |
 | ★ | Design spec (full) | [`superpowers/specs/2026-05-19-drone-relief-design.md`](superpowers/specs/2026-05-19-drone-relief-design.md) | Source of truth for everything above |
+| ADR | Architecture decisions | [`adr/`](adr/) | Hard-to-reverse decisions (scope, dev env, widget pattern). Numbered + dated. |
 
 ## Diagram rendering
 
@@ -46,5 +47,6 @@ npx --yes @mermaid-js/mermaid-cli -i docs/<file>.md -o docs/diagrams/<file>.png
 8. **`06-wbs.md`** — how the work breaks down.
 9. **`05-gantt.xlsx`** — when it gets done.
 10. **`00-team-raci.md`** — who does what.
+11. **`adr/*.md`** — architecture decisions that shaped the plan (read after `00-team-raci.md`).
 
 The full **design spec** in `superpowers/specs/` is the technical reference behind all of the above.

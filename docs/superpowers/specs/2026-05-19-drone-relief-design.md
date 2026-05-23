@@ -540,16 +540,15 @@ Each agent file (`.claude/agents/<name>.md`) holds frontmatter (name, descriptio
 | `log-presence` | PR must add at least one new `*.jsonl` under `docs/agent-logs/<author-handle>/` if any source file changed. Author handle resolved via `docs/agent-logs/README.md` GitHub-username → handle table. Enforces the class rule. |
 
 ### Deploy
-- `deploy-functions.yml` — on push to `main`: `firebase deploy --only functions`
-- `deploy-rules.yml` — on push to `main`: `firebase deploy --only firestore:rules,firestore:indexes`
+~~`deploy-functions.yml`~~ + ~~`deploy-rules.yml`~~ — **deferred, emulator-only**. The class submission runs entirely against the Firebase Emulator Suite on each developer's laptop. To re-enable auto-deploy later, recreate the workflows from git history and add the `FIREBASE_SERVICE_ACCOUNT` repo secret. See `docs/adr/0002-scope-full-features-fcm-emulator-exempt.md`.
 
 ### Housekeeping
 - `build-log-index.yml` — on push to `docs/agent-logs/**`: regenerate `_index.md`, commit back with `[skip ci]`.
 - `claude-review.yml` *(optional, can be dropped to save API budget)* — on PR, invoke the `security-reviewer` subagent against the diff, post findings as PR comment.
 
 ### Repo settings
-- Single Firebase project `csc291-drone-relief` for the class. No prod/dev split.
-- Service account in GitHub Actions secret `FIREBASE_SERVICE_ACCOUNT`.
+- Single Firebase project `droneaid-csc291` configured in `.firebaserc` but not deployed for the class submission — local emulator only.
+- ~~Service account in GitHub Actions secret `FIREBASE_SERVICE_ACCOUNT`.~~ Deferred until deploy is re-enabled.
 - `main` branch protected: require CI green + 1 reviewer.
 - Branch convention: `feat/<short>`, PR back to `main`.
 
