@@ -64,7 +64,7 @@ beforeEach(async () => {
       phone: "+66810000102",
       createdAt: 0,
     });
-    await setDoc(doc(db, "users/admin-aok"), {
+    await setDoc(doc(db, "users/droneaid-admin"), {
       role: "admin",
       locked: false,
       nationalId: "1100000000001",
@@ -106,7 +106,7 @@ beforeEach(async () => {
     await setDoc(doc(db, "weather/current"), {
       state: "clear",
       updatedAt: 0,
-      updatedBy: "admin-aok",
+      updatedBy: "droneaid-admin",
     });
     await setDoc(doc(db, "users/user-mali/notifications/notif-1"), {
       title: "Welcome",
@@ -120,7 +120,7 @@ beforeEach(async () => {
 
 const mali = () => env.authenticatedContext("user-mali").firestore();
 const naree = () => env.authenticatedContext("user-naree").firestore();
-const admin = () => env.authenticatedContext("admin-aok").firestore();
+const admin = () => env.authenticatedContext("droneaid-admin").firestore();
 const anon = () => env.unauthenticatedContext().firestore();
 
 // ─── users ────────────────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ describe("weather/{docId}", () => {
     assertFails(setDoc(doc(admin(), "weather/current"), {
       state: "storm",
       updatedAt: 1,
-      updatedBy: "admin-aok",
+      updatedBy: "droneaid-admin",
     })));
 });
 

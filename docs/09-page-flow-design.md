@@ -172,7 +172,7 @@ Backed by `functions/src/seed/*.ts`. Run once after `firebase deploy`. Idempoten
 
 | ID | nationalId | name | phone | password (demo only) |
 |---|---|---|---|---|
-| admin-aok | 1100000000001 | Aok Lead | +66 81 000 0001 | `Admin#001` |
+| droneaid-admin | 1100000000008 | Drone-Aid Admin | +66 81 000 0001 | `Admin#001` |
 
 ### 4.2 Demo users (role=user)
 
@@ -212,7 +212,7 @@ Base location: warehouse at 13.7400, 100.5400 (Bangkok). All start `idle`, batte
 
 Single doc `weather/current`:
 ```
-{ state: "clear", updatedBy: "admin-aok", updatedAt: <serverTimestamp> }
+{ state: "clear", updatedBy: "droneaid-admin", updatedAt: <serverTimestamp> }
 ```
 
 ### 4.6 No demo requests at seed time
