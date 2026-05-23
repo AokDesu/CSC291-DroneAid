@@ -30,7 +30,7 @@ if [[ -d "$emu_data" ]]; then
   firebase emulators:exec \
     --only auth,firestore,functions \
     --import="$emu_data" \
-    --export-on-exit \
+    --export-on-exit="$emu_data" \
     "cd \"$repo_root/app\" && flutter run $flutter_args"
 else
   echo "[dev] no $emu_data — first run, will seed and export on exit"

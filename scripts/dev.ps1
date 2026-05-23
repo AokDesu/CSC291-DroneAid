@@ -30,7 +30,7 @@ if (Test-Path -Path $emuData) {
   firebase emulators:exec `
     --only auth,firestore,functions `
     --import="$emuData" `
-    --export-on-exit `
+    --export-on-exit="$emuData" `
     "cd `"$appDir`" && flutter run $flutterArgs"
 } else {
   Write-Host "[dev] no $emuData - first run, will seed and export on exit"
