@@ -13,6 +13,8 @@ import { seedCatalog } from "./seedCatalog";
 import { seedDrones } from "./seedDrones";
 import { seedAdmins } from "./seedAdmins";
 import { seedDemoUsers } from "./seedDemoUsers";
+import { seedDemoRequests } from "./seedDemoRequests";
+import { seedDemoFlights } from "./seedDemoFlights";
 import { seedWeather } from "./seedWeather";
 
 async function main(): Promise<void> {
@@ -20,6 +22,8 @@ async function main(): Promise<void> {
   await seedDrones();
   await seedAdmins();
   await seedDemoUsers();
+  await seedDemoRequests();
+  await seedDemoFlights();
   await seedWeather();
   console.log("All seeds applied.");
 }
