@@ -25,7 +25,7 @@ const ADMINS: SeedAdmin[] = [
   {
     uid: "admin-aok",
     nationalId: ADMIN_NATIONAL_ID,
-    name: "Aok Lead",
+    name: "Drone-Aid Admin",
     email: `${ADMIN_NATIONAL_ID}@drone-aid.local`,
     password: "Admin#001",
     phone: "+66810000001",
