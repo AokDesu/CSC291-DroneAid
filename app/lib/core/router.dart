@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/admin/inventory_page.dart';
 import '../features/admin/requests_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
@@ -78,7 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/admin/control',       builder: (_, __) => const _Placeholder('Control map (P-A-05)')),
       GoRoute(path: '/admin/weather',       builder: (_, __) => const _Placeholder('Weather panel (P-A-06)')),
-      GoRoute(path: '/admin/inventory',     builder: (_, __) => const _Placeholder('Inventory (P-A-07)')),
+      GoRoute(path: '/admin/inventory',     builder: (_, __) => const AdminInventoryPage()),
     ],
     errorBuilder: (_, state) => _Placeholder('No route for ${state.uri.path}'),
   );

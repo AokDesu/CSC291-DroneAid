@@ -27,6 +27,7 @@ export { setWeather } from "./callable/setWeather";
 export { restockItem } from "./callable/restockItem";
 export { toggleDroneMaintenance } from "./callable/toggleDroneMaintenance";
 export { createCatalogItem } from "./callable/createCatalogItem";
+export { toggleCatalogActive } from "./callable/toggleCatalogActive";
 
 // ── Scheduled ───────────────────────────────────────────────────────────
 export { tickFlights } from "./scheduled/tickFlights";
