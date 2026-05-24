@@ -8,6 +8,7 @@ import '../features/admin/requests_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/user/home_page.dart';
+import '../features/user/profile_page.dart';
 import 'auth/auth_providers.dart';
 
 const _publicRoutes = {'/login', '/register'};
@@ -60,7 +61,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/user/history',        builder: (_, __) => const _Placeholder('History (P-U-07)')),
       GoRoute(path: '/user/notifications',  builder: (_, __) => const _Placeholder('Notifications (P-U-08)')),
-      GoRoute(path: '/user/profile',        builder: (_, __) => const _Placeholder('Profile + Settings (P-U-09)')),
+      GoRoute(path: '/user/profile',        builder: (_, __) => const ProfilePage()),
 
       // Admin
       GoRoute(path: '/admin/requests',      builder: (_, __) => const AdminRequestsPage()),
