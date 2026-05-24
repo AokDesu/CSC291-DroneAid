@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/admin/drones_page.dart';
 import '../features/admin/inventory_page.dart';
 import '../features/admin/requests_page.dart';
 import '../features/admin/weather_page.dart';
@@ -73,7 +74,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             _Placeholder('Request manage ${state.pathParameters['reqId']} (P-A-02)'),
       ),
-      GoRoute(path: '/admin/drones',        builder: (_, __) => const _Placeholder('Drone list (P-A-03)')),
+      GoRoute(path: '/admin/drones',        builder: (_, __) => const AdminDronesPage()),
       GoRoute(
         path: '/admin/drones/:droneId',
         builder: (_, state) =>
