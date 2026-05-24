@@ -15,6 +15,7 @@ import '../features/user/history_page.dart';
 import '../features/user/home_page.dart';
 import '../features/user/profile_page.dart';
 import '../features/user/queue_page.dart';
+import '../features/user/tracking_page.dart';
 import 'auth/auth_providers.dart';
 
 const _publicRoutes = {'/login', '/register'};
@@ -57,8 +58,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/user/queue',          builder: (_, __) => const QueuePage()),
       GoRoute(
         path: '/user/tracking/:flightId',
-        builder: (_, state) =>
-            _Placeholder('Tracking flight ${state.pathParameters['flightId']} (P-U-05)'),
+        builder: (_, state) => TrackingPage(
+          flightId: state.pathParameters['flightId']!,
+        ),
       ),
       GoRoute(
         path: '/user/confirm/:reqId',
