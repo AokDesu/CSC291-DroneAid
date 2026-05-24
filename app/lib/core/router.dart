@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/admin/inventory_page.dart';
 import '../features/admin/requests_page.dart';
+import '../features/admin/weather_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/user/home_page.dart';
@@ -79,7 +80,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             _Placeholder('Drone ${state.pathParameters['droneId']} (P-A-04)'),
       ),
       GoRoute(path: '/admin/control',       builder: (_, __) => const _Placeholder('Control map (P-A-05)')),
-      GoRoute(path: '/admin/weather',       builder: (_, __) => const _Placeholder('Weather panel (P-A-06)')),
+      GoRoute(path: '/admin/weather',       builder: (_, __) => const AdminWeatherPage()),
       GoRoute(path: '/admin/inventory',     builder: (_, __) => const AdminInventoryPage()),
     ],
     errorBuilder: (_, state) => _Placeholder('No route for ${state.uri.path}'),
