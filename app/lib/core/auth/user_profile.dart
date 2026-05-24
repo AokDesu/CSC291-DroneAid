@@ -12,6 +12,7 @@ class UserProfile {
     required this.role,
     required this.locked,
     this.deliveryAddress,
+    this.prefs,
   });
 
   final String uid;
@@ -21,8 +22,13 @@ class UserProfile {
   final String role;
   final bool locked;
   final Map<String, dynamic>? deliveryAddress;
+  final Map<String, dynamic>? prefs;
 
   bool get isAdmin => role == 'admin';
+
+  String get theme => (prefs?['theme'] as String?) ?? 'system';
+  bool get notificationsEnabled =>
+      (prefs?['notificationsEnabled'] as bool?) ?? true;
 
   factory UserProfile.fromMap(String uid, Map<String, dynamic> data) {
     return UserProfile(
@@ -33,6 +39,7 @@ class UserProfile {
       role: (data['role'] as String?) ?? 'user',
       locked: (data['locked'] as bool?) ?? false,
       deliveryAddress: (data['deliveryAddress'] as Map?)?.cast<String, dynamic>(),
+      prefs: (data['prefs'] as Map?)?.cast<String, dynamic>(),
     );
   }
 }
