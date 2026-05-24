@@ -13,19 +13,6 @@ import 'request/queue_provider.dart';
 
 const _functionsRegion = 'asia-southeast1';
 
-/// Pure helper — turns request items into "Food Kit ×2 · Blanket ×1".
-/// Falls back to the raw catalogId when a name is unknown.
-@visibleForTesting
-String formatItemSummary(
-  List<RequestItemLine> items,
-  Map<String, String> catalogNames,
-) {
-  if (items.isEmpty) return '(no items)';
-  return items
-      .map((it) => '${catalogNames[it.catalogId] ?? it.catalogId} ×${it.qty}')
-      .join(' · ');
-}
-
 class QueuePage extends ConsumerWidget {
   const QueuePage({super.key});
 
