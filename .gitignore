@@ -92,3 +92,6 @@ lcov.info
 # ── Local helper script env ──
 .drone-aid.env
 .playwright-mcp/
+
+# ── Agent-log index (derived — regenerate via scripts/build-log-index.py) ──
+docs/agent-logs/_index.md

@@ -7,7 +7,7 @@ Per the professor's requirement (and design spec §13), every team member's Clau
 ```
 docs/agent-logs/
 ├── README.md            (this file)
-├── _index.md            generated locally by scripts/build-log-index.py
+├── _index.md            generated locally by scripts/build-log-index.py (gitignored)
 ├── aok/                 Aok (Lead)
 ├── belle/               Belle
 ├── bew/                 Bew
@@ -15,7 +15,7 @@ docs/agent-logs/
 ├── tawan/               Tawan
 ```
 
-Each per-dev folder receives that dev's session JSONL files, named `YYYY-MM-DD_<sessionId>.jsonl`.
+Each per-dev folder receives that dev's session JSONL files, named `YYYY-MM-DD_<sessionId>_HHMMSS.jsonl`. The `HHMMSS` snapshot suffix means every flush writes a new file, so two branches can each carry the same Claude session id without colliding at merge time. Old snapshots are strict subsets of newer ones (Claude appends within a session) — keep them all.
 
 ## Handle table
 
@@ -135,11 +135,10 @@ Then commit the resulting `.jsonl` and push.
 
 ## Index
 
-`docs/agent-logs/_index.md` is derived from the `.jsonl` files. Regenerate locally before committing a new session log:
+`docs/agent-logs/_index.md` is derived from the `.jsonl` files and **not** checked in (see `.gitignore`). Regenerate locally when you want a browsable table of every session:
 
 ```bash
 python scripts/build-log-index.py
-git add docs/agent-logs/_index.md
 ```
 
-Do not edit `_index.md` by hand.
+Open `docs/agent-logs/_index.md` in your editor. The file is git-ignored, so it's safe to regenerate any time.

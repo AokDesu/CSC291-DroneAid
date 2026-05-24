@@ -8,7 +8,9 @@
 #   1. export DRONE_AID_HANDLE=aok        # one of: aok belle bew poom tawan
 #   2. Add a SessionEnd hook to ~/.claude/settings.json that calls this script.
 #
-# Idempotent — running twice on the same session overwrites the same target file.
+# Each run writes a new file (HHMMSS suffix). Branches never collide on the same
+# session id because every snapshot has a unique path. Old snapshots are strict
+# subsets of newer ones (Claude appends within a session); harmless to keep.
 
 set -euo pipefail
 
@@ -48,13 +50,16 @@ if [[ -z "$py" ]]; then
   exit 1
 fi
 
-# Target path.
+# Target path. Filename: YYYY-MM-DD_<sessionUUID>_HHMMSS.jsonl — the HHMMSS
+# suffix gives every snapshot a unique path so two branches can each carry the
+# same session id without colliding.
 date_str="$(date +%Y-%m-%d)"
+time_str="$(date +%H%M%S)"
 target_dir="$repo_root/docs/agent-logs/$handle"
 mkdir -p "$target_dir"
 
 base="$(basename "$latest" .jsonl)"
-target_file="$target_dir/${date_str}_${base}.jsonl"
+target_file="$target_dir/${date_str}_${base}_${time_str}.jsonl"
 
 # Pipe through the redactor.
 "$py" "$repo_root/scripts/redact-secrets.py" < "$latest" > "$target_file"
