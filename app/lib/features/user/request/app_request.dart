@@ -84,6 +84,18 @@ QueueBucket bucketFor(String status) {
   }
 }
 
+/// Pure helper — turns request items into "Food Kit ×2 · Blanket ×1".
+/// Falls back to the raw catalogId when a name is unknown.
+String formatItemSummary(
+  List<RequestItemLine> items,
+  Map<String, String> catalogNames,
+) {
+  if (items.isEmpty) return '(no items)';
+  return items
+      .map((it) => '${catalogNames[it.catalogId] ?? it.catalogId} ×${it.qty}')
+      .join(' · ');
+}
+
 /// Pure helper — human-friendly relative time like "Just now", "7 min ago",
 /// "3 h ago", "Yesterday", "Mar 14". Pure for testability.
 String relativeTime(DateTime? when, {DateTime? now}) {
