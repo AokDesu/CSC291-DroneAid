@@ -10,6 +10,7 @@ import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/user/home_page.dart';
 import '../features/user/profile_page.dart';
+import '../features/user/queue_page.dart';
 import 'auth/auth_providers.dart';
 
 const _publicRoutes = {'/login', '/register'};
@@ -49,7 +50,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // User
       GoRoute(path: '/user/home',           builder: (_, __) => const UserHomePage()),
-      GoRoute(path: '/user/queue',          builder: (_, __) => const _Placeholder('Queue (P-U-04)')),
+      GoRoute(path: '/user/queue',          builder: (_, __) => const QueuePage()),
       GoRoute(
         path: '/user/tracking/:flightId',
         builder: (_, state) =>
