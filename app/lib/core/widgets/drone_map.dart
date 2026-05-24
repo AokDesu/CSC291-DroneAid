@@ -1,6 +1,7 @@
-// Public API frozen per #23 / ADR-0003. Body filled in #24.
+// Public API frozen per #23 / ADR-0003.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 class DroneMapMarker {
@@ -31,6 +32,34 @@ class DroneMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: Colors.grey);
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: zoom,
+        onTap: onTap == null ? null : (_, point) => onTap!(point),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'droneaid.csc291',
+        ),
+        MarkerLayer(
+          markers: [
+            for (final m in markers)
+              Marker(
+                point: m.position,
+                width: 40,
+                height: 40,
+                child: m.icon ??
+                    const Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                      size: 32,
+                    ),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 }
