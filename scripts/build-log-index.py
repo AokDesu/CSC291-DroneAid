@@ -7,7 +7,7 @@ Each row: date · author folder · session id · first user prompt (truncated).
 Run locally:
     python scripts/build-log-index.py
 
-Run in CI via .github/workflows/build-log-index.yml after a JSONL lands on main.
+The generated _index.md is gitignored — regenerate on demand.
 """
 
 from __future__ import annotations
@@ -61,13 +61,14 @@ def _truncate(s: str) -> str:
 
 
 def parse_filename(p: Path) -> tuple[str, str]:
-    """File name pattern: YYYY-MM-DD_<sessionId>.jsonl  →  (date, sessionId).
+    """File name pattern: YYYY-MM-DD_<sessionId>[_<snapshotHHMMSS>].jsonl
+    →  (date, sessionId). Snapshot suffix (if present) is discarded.
     Falls back gracefully if the pattern doesn't match.
     """
     stem = p.stem
-    if "_" in stem:
-        date, _, sid = stem.partition("_")
-        return date, sid
+    parts = stem.split("_", 2)
+    if len(parts) >= 2:
+        return parts[0], parts[1]
     return "----", stem
 
 

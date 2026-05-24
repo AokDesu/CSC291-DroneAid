@@ -9,7 +9,9 @@
 #   2. Add a SessionEnd hook to %USERPROFILE%\.claude\settings.json that calls
 #      this script. See docs/agent-logs/README.md for the JSON snippet.
 #
-# Idempotent — running twice on the same session overwrites the same target file.
+# Each run writes a new file (HHmmss suffix). Branches never collide on the same
+# session id because every snapshot has a unique path. Old snapshots are strict
+# subsets of newer ones (Claude appends within a session); harmless to keep.
 
 $ErrorActionPreference = "Stop"
 
@@ -73,10 +75,14 @@ if (-not $Py) {
     exit 1
 }
 
-# Target path under docs/agent-logs.
+# Target path under docs/agent-logs. Filename:
+# YYYY-MM-DD_<sessionUUID>_HHmmss.jsonl — the HHmmss suffix gives every snapshot
+# a unique path so two branches can each carry the same session id without
+# colliding.
 $Date = Get-Date -Format "yyyy-MM-dd"
+$Time = Get-Date -Format "HHmmss"
 $TargetDir = Join-Path $RepoRoot "docs\agent-logs\$Handle"
-$TargetFile = Join-Path $TargetDir "$Date`_$($Latest.BaseName).jsonl"
+$TargetFile = Join-Path $TargetDir "$Date`_$($Latest.BaseName)`_$Time.jsonl"
 
 New-Item -ItemType Directory -Force -Path $TargetDir | Out-Null
 
