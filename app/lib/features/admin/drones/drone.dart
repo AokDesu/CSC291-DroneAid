@@ -27,9 +27,9 @@ class Drone {
   final DateTime? lastSeenAt;
 
   factory Drone.fromSnap(
-    QueryDocumentSnapshot<Map<String, dynamic>> snap,
+    DocumentSnapshot<Map<String, dynamic>> snap,
   ) {
-    final data = snap.data();
+    final data = snap.data() ?? const <String, dynamic>{};
     final base = (data['baseLocation'] as Map<String, dynamic>?) ?? const {};
     final ts = data['lastSeenAt'];
     return Drone(

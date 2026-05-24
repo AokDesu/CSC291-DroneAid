@@ -39,7 +39,6 @@ Color droneStatusColor(String status, ColorScheme scheme) {
   }
 }
 
-@visibleForTesting
 String droneStatusLabel(String status) {
   switch (status) {
     case 'idle':
