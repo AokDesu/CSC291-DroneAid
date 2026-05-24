@@ -14,6 +14,7 @@ import '../features/auth/register_page.dart';
 import '../features/user/history_page.dart';
 import '../features/user/home_page.dart';
 import '../features/user/profile_page.dart';
+import '../features/user/confirm_page.dart';
 import '../features/user/queue_page.dart';
 import '../features/user/tracking_page.dart';
 import 'auth/auth_providers.dart';
@@ -64,8 +65,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/user/confirm/:reqId',
-        builder: (_, state) =>
-            _Placeholder('Confirm request ${state.pathParameters['reqId']} (P-U-06)'),
+        builder: (_, state) => ConfirmPage(
+          reqId: state.pathParameters['reqId']!,
+        ),
       ),
       GoRoute(path: '/user/history',        builder: (_, __) => const HistoryPage()),
       GoRoute(path: '/user/notifications',  builder: (_, __) => const _Placeholder('Notifications (P-U-08)')),
