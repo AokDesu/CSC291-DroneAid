@@ -1,4 +1,4 @@
-// Public API frozen per #23 / ADR-0003. Body filled in #25.
+// Public API frozen per #23 / ADR-0003.
 
 import 'package:flutter/material.dart';
 
@@ -12,11 +12,28 @@ class BatteryBar extends StatelessWidget {
   final double percent;
   final double? height;
 
+  static Color colorFor(double p) {
+    if (p > 50) return Colors.green;
+    if (p > 20) return Colors.yellow;
+    return Colors.red;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: LinearProgressIndicator(value: (percent / 100).clamp(0.0, 1.0)),
+    final target = percent.clamp(0.0, 100.0);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: target),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+      builder: (context, value, _) {
+        return SizedBox(
+          height: height,
+          child: LinearProgressIndicator(
+            value: value / 100,
+            valueColor: AlwaysStoppedAnimation<Color>(colorFor(value)),
+          ),
+        );
+      },
     );
   }
 }
