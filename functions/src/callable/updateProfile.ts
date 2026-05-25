@@ -3,7 +3,7 @@
 
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { z } from "zod";
-import { db } from "../lib/admin";
+import { db, FieldValue } from "../lib/admin";
 import { requireUser } from "../lib/roles";
 
 const InputSchema = z.object({
@@ -18,6 +18,7 @@ const InputSchema = z.object({
     theme: z.enum(["system", "light", "dark"]).optional(),
     notificationsEnabled: z.boolean().optional(),
   }).optional(),
+  fcmToken: z.string().min(1).optional(),
 });
 
 export const updateProfile = onCall(async (req) => {
@@ -32,6 +33,7 @@ export const updateProfile = onCall(async (req) => {
   if (payload.phone !== undefined) patch.phone = payload.phone;
   if (payload.deliveryAddress !== undefined) patch.deliveryAddress = payload.deliveryAddress;
   if (payload.prefs !== undefined) patch.prefs = payload.prefs;
+  if (payload.fcmToken !== undefined) patch.fcmTokens = FieldValue.arrayUnion(payload.fcmToken);
 
   if (Object.keys(patch).length === 0) return { ok: true };
   // set+merge instead of update so we don't throw when onUserCreated hasn't

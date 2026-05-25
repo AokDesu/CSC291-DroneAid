@@ -16,6 +16,7 @@ import { seedDemoUsers } from "./seedDemoUsers";
 import { seedDemoRequests } from "./seedDemoRequests";
 import { seedDemoFlights } from "./seedDemoFlights";
 import { seedWeather } from "./seedWeather";
+import { seedDemoNotifications } from "./seedDemoNotifications";
 
 async function main(): Promise<void> {
   await seedCatalog();
@@ -25,6 +26,7 @@ async function main(): Promise<void> {
   await seedDemoRequests();
   await seedDemoFlights();
   await seedWeather();
+  await seedDemoNotifications();
   console.log("All seeds applied.");
 }
 
