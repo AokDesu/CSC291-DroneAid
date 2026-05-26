@@ -8,6 +8,7 @@ import '../features/admin/control_page.dart';
 import '../features/admin/drones/drone_detail_page.dart';
 import '../features/admin/drones_page.dart';
 import '../features/admin/inventory_page.dart';
+import '../features/admin/requests/admin_request_detail_page.dart';
 import '../features/admin/requests_page.dart';
 import '../features/admin/weather_page.dart';
 import '../features/auth/login_page.dart';
@@ -79,8 +80,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/admin/requests',      builder: (_, __) => const AdminRequestsPage()),
       GoRoute(
         path: '/admin/requests/:reqId',
-        builder: (_, state) =>
-            _Placeholder('Request manage ${state.pathParameters['reqId']} (P-A-02)'),
+        builder: (_, state) => AdminRequestDetailPage(
+          reqId: state.pathParameters['reqId']!,
+        ),
       ),
       GoRoute(path: '/admin/drones',        builder: (_, __) => const AdminDronesPage()),
       GoRoute(

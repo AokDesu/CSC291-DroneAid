@@ -27,6 +27,17 @@ final adminAllRequestsProvider = StreamProvider<List<AdminRequest>>((ref) {
       );
 });
 
+/// Streams a single `requests/{reqId}` doc for the P-A-02 detail page.
+/// Emits null when the doc disappears mid-session.
+final adminRequestDocProvider =
+    StreamProvider.family<AdminRequest?, String>((ref, reqId) {
+  final docRef = FirebaseFirestore.instance.doc('requests/$reqId');
+  return docRef.snapshots().map((snap) {
+    if (!snap.exists) return null;
+    return AdminRequest.fromSnap(snap);
+  });
+});
+
 final userNamesProvider = StreamProvider<Map<String, String>>((ref) {
   final col = FirebaseFirestore.instance.collection('users');
   return col.snapshots().map(
