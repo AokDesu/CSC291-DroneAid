@@ -26,10 +26,15 @@ if [[ -z "$handle" ]]; then
 fi
 
 # Per-project Claude Code session directory.
-# Adjust the encoded path on your platform if the repo lives elsewhere.
-session_dir="$HOME/.claude/projects/$(pwd | sed 's|^/||; s|/|-|g; s|^|-|')"
-# Fallback to the Windows-style encoding used in this template.
-[[ -d "$session_dir" ]] || session_dir="$HOME/.claude/projects/D--projects-csc291"
+# On Windows (msys/cygwin), the project dir is encoded from the Windows path
+# (backslashes and colon → dashes). On POSIX, encode from the Unix path.
+if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]]; then
+  win_path="$(cygpath -w "$(pwd)")"
+  encoded="$(echo "$win_path" | sed 's|\\|-|g; s|:|-|g')"
+  session_dir="$HOME/.claude/projects/$encoded"
+else
+  session_dir="$HOME/.claude/projects/$(pwd | sed 's|^/||; s|/|-|g; s|^|-|')"
+fi
 
 if [[ ! -d "$session_dir" ]]; then
   echo "No Claude Code session dir at $session_dir — nothing to copy."

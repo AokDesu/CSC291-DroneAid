@@ -9,6 +9,7 @@ class FlightDoc {
     required this.id,
     required this.requestId,
     required this.userId,
+    required this.droneId,
     required this.origin,
     required this.destination,
     required this.takeoffAt,
@@ -23,6 +24,7 @@ class FlightDoc {
   final String id;
   final String requestId;
   final String userId;
+  final String droneId;
   final LatLng origin;
   final LatLng destination;
   final DateTime takeoffAt;
@@ -41,6 +43,7 @@ class FlightDoc {
       id: snap.id,
       requestId: (d['requestId'] as String?) ?? '',
       userId: (d['userId'] as String?) ?? '',
+      droneId: (d['droneId'] as String?) ?? '',
       origin: LatLng(
         (orig['lat'] as num?)?.toDouble() ?? 0,
         (orig['lng'] as num?)?.toDouble() ?? 0,
