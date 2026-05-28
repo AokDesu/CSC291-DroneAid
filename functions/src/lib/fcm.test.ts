@@ -8,12 +8,13 @@ jest.mock("firebase-admin/messaging", () => ({
 
 jest.mock("./admin", () => {
   const arrayRemove = jest.fn((...args: string[]) => ({ __arrayRemove: args }));
+  const serverTimestamp = jest.fn().mockReturnValue(null);
   return {
     db: {
       doc: jest.fn(),
       collection: jest.fn(),
     },
-    FieldValue: { arrayRemove },
+    FieldValue: { arrayRemove, serverTimestamp },
     Timestamp: {},
   };
 });
@@ -23,6 +24,13 @@ const sendEachForMulticast = jest.fn();
 beforeEach(() => {
   jest.clearAllMocks();
   (getMessaging as jest.Mock).mockReturnValue({ sendEachForMulticast });
+  // Default: notification subcollection writes succeed silently.
+  (db.collection as jest.Mock).mockReturnValue({
+    add: jest.fn().mockResolvedValue({}),
+    where: jest.fn().mockReturnValue({
+      get: jest.fn().mockResolvedValue({ docs: [] }),
+    }),
+  });
 });
 
 describe("sendToUser", () => {
@@ -125,21 +133,26 @@ describe("sendToAdmins", () => {
     const updateA = jest.fn().mockResolvedValue(undefined);
     const updateB = jest.fn().mockResolvedValue(undefined);
 
-    (db.collection as jest.Mock).mockReturnValue({
-      where: jest.fn().mockReturnValue({
-        get: jest.fn().mockResolvedValue({
-          docs: [
-            {
-              id: "adminA",
-              data: () => ({ fcmTokens: ["a-good", "a-stale"] }),
-            },
-            {
-              id: "adminB",
-              data: () => ({ fcmTokens: ["b-stale"] }),
-            },
-          ],
-        }),
-      }),
+    (db.collection as jest.Mock).mockImplementation((path: string) => {
+      if (path === "users") {
+        return {
+          where: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({
+              docs: [
+                {
+                  id: "adminA",
+                  data: () => ({ fcmTokens: ["a-good", "a-stale"] }),
+                },
+                {
+                  id: "adminB",
+                  data: () => ({ fcmTokens: ["b-stale"] }),
+                },
+              ],
+            }),
+          }),
+        };
+      }
+      return { add: jest.fn().mockResolvedValue({}) };
     });
 
     (db.doc as jest.Mock).mockImplementation((path: string) => {

@@ -17,6 +17,7 @@ import 'core/auth/auth_providers.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'core/widgets/auth_splash.dart';
+import 'features/user/notifications/fcm_register.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -67,6 +68,7 @@ class DroneAidApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    ref.watch(fcmRegistrationProvider);
     return MaterialApp.router(
       title: 'DroneAid',
       debugShowCheckedModeBanner: false,

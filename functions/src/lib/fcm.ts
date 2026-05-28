@@ -71,10 +71,23 @@ async function pruneStaleTokens(
   );
 }
 
+function writeInbox(uid: string, payload: NotificationPayload): Promise<void> {
+  return db.collection(`users/${uid}/notifications`).add({
+    title: payload.title,
+    body: payload.body,
+    deepLink: payload.deepLink,
+    createdAt: FieldValue.serverTimestamp(),
+    readAt: null,
+  }).then(() => undefined);
+}
+
 export async function sendToUser(uid: string, payload: NotificationPayload): Promise<void> {
   const snap = await db.doc(`users/${uid}`).get();
   const tokens = (snap.data()?.fcmTokens as string[] | undefined) ?? [];
-  await fanOut(tokens.map((token) => ({ uid, token })), payload);
+  await Promise.all([
+    fanOut(tokens.map((token) => ({ uid, token })), payload),
+    writeInbox(uid, payload),
+  ]);
 }
 
 export async function sendToAdmins(payload: NotificationPayload): Promise<void> {
@@ -84,5 +97,8 @@ export async function sendToAdmins(payload: NotificationPayload): Promise<void> 
     const t = (doc.data().fcmTokens as string[] | undefined) ?? [];
     for (const token of t) refs.push({ uid: doc.id, token });
   }
-  await fanOut(refs, payload);
+  await Promise.all([
+    fanOut(refs, payload),
+    ...snap.docs.map((doc) => writeInbox(doc.id, payload)),
+  ]);
 }
