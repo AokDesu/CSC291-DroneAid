@@ -14,9 +14,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_providers.dart';
 import 'admin_request.dart';
 
-final adminAllRequestsProvider = StreamProvider<List<AdminRequest>>((ref) {
+final adminAllRequestsProvider =
+    StreamProvider.autoDispose<List<AdminRequest>>((ref) {
+  ref.watch(authStateProvider);
   final col = FirebaseFirestore.instance.collection('requests');
   return col
       .orderBy('createdAt', descending: true)
@@ -30,7 +33,8 @@ final adminAllRequestsProvider = StreamProvider<List<AdminRequest>>((ref) {
 /// Streams a single `requests/{reqId}` doc for the P-A-02 detail page.
 /// Emits null when the doc disappears mid-session.
 final adminRequestDocProvider =
-    StreamProvider.family<AdminRequest?, String>((ref, reqId) {
+    StreamProvider.autoDispose.family<AdminRequest?, String>((ref, reqId) {
+  ref.watch(authStateProvider);
   final docRef = FirebaseFirestore.instance.doc('requests/$reqId');
   return docRef.snapshots().map((snap) {
     if (!snap.exists) return null;
@@ -38,7 +42,9 @@ final adminRequestDocProvider =
   });
 });
 
-final userNamesProvider = StreamProvider<Map<String, String>>((ref) {
+final userNamesProvider =
+    StreamProvider.autoDispose<Map<String, String>>((ref) {
+  ref.watch(authStateProvider);
   final col = FirebaseFirestore.instance.collection('users');
   return col.snapshots().map(
         (snap) => <String, String>{
