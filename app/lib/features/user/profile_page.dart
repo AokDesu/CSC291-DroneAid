@@ -123,11 +123,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _phone;
-  late final TextEditingController _lat;
-  late final TextEditingController _lng;
-  late final TextEditingController _label;
   late String _theme;
   late bool _notificationsEnabled;
+  DeliveryPin? _deliveryPin;
   DeliveryPin? _hubPin;
   bool _saving = false;
   String? _serverError;
@@ -139,34 +137,36 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     final p = widget.initial;
     _name = TextEditingController(text: p.name ?? '');
     _phone = TextEditingController(text: p.phone ?? '');
-    final addr = p.deliveryAddress;
-    _lat = TextEditingController(text: (addr?['lat'] as num?)?.toString() ?? '');
-    _lng = TextEditingController(text: (addr?['lng'] as num?)?.toString() ?? '');
-    _label = TextEditingController(text: (addr?['label'] as String?) ?? '');
-    final hub = p.hubLocation;
-    if (hub != null) {
-      final hLat = (hub['lat'] as num?)?.toDouble();
-      final hLng = (hub['lng'] as num?)?.toDouble();
-      if (hLat != null && hLng != null) {
-        _hubPin = DeliveryPin(
-          lat: hLat,
-          lng: hLng,
-          label: hub['label'] as String?,
-        );
-      }
-    }
+    _deliveryPin = _readPin(p.deliveryAddress);
+    _hubPin = _readPin(p.hubLocation);
     _theme = p.theme;
     _notificationsEnabled = p.notificationsEnabled;
+  }
+
+  static DeliveryPin? _readPin(Map<String, dynamic>? raw) {
+    if (raw == null) return null;
+    final lat = (raw['lat'] as num?)?.toDouble();
+    final lng = (raw['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+    return DeliveryPin(lat: lat, lng: lng, label: raw['label'] as String?);
   }
 
   @override
   void dispose() {
     _name.dispose();
     _phone.dispose();
-    _lat.dispose();
-    _lng.dispose();
-    _label.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDelivery() async {
+    final picked = await showPinPicker(
+      context,
+      initial: _deliveryPin,
+      title: 'Drop a delivery pin',
+      labelFieldLabel: 'Label (optional, e.g. "Home")',
+    );
+    if (picked == null) return;
+    setState(() => _deliveryPin = picked);
   }
 
   Future<void> _pickHub() async {
@@ -192,9 +192,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       initial: widget.initial,
       name: _name.text,
       phone: isAdmin ? (widget.initial.phone ?? '') : _phone.text,
-      lat: isAdmin ? null : double.tryParse(_lat.text.trim()),
-      lng: isAdmin ? null : double.tryParse(_lng.text.trim()),
-      label: isAdmin ? '' : _label.text,
+      lat: isAdmin ? null : _deliveryPin?.lat,
+      lng: isAdmin ? null : _deliveryPin?.lng,
+      label: isAdmin ? '' : (_deliveryPin?.label ?? ''),
       hubLat: _hubPin?.lat,
       hubLng: _hubPin?.lng,
       hubLabel: _hubPin?.label ?? '',
@@ -252,16 +252,6 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     return null;
   }
 
-  String? _validateCoord(String? v, {required bool isLat}) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return null;
-    final n = double.tryParse(s);
-    if (n == null) return 'Must be a number';
-    if (isLat && (n < -90 || n > 90)) return '-90..90';
-    if (!isLat && (n < -180 || n > 180)) return '-180..180';
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -300,55 +290,26 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           ),
           const SizedBox(height: 12),
           if (isAdmin)
-            _HubCard(pin: _hubPin, onPick: _pickHub)
+            _PinCard(
+              title: 'Hub',
+              subtitle:
+                  'Your distribution hub. Drop a pin where this account dispatches from.',
+              pin: _hubPin,
+              onPick: _pickHub,
+              emptyLabel: 'No hub set yet',
+              setLabel: 'Set hub',
+              changeLabel: 'Change hub',
+            )
           else
-            _SectionCard(
+            _PinCard(
               title: 'Delivery address',
               subtitle:
-                  'Enter coordinates for your delivery point. Or tap the map on the Home tab to drop a pin.',
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _lat,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Latitude',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) => _validateCoord(v, isLat: true),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _lng,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Longitude',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) => _validateCoord(v, isLat: false),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _label,
-                  decoration: const InputDecoration(
-                    labelText: 'Label (e.g. "Home")',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
+                  'Where the drone drops your packages. Tap to drop a pin or use your current location.',
+              pin: _deliveryPin,
+              onPick: _pickDelivery,
+              emptyLabel: 'No delivery pin yet',
+              setLabel: 'Set pin',
+              changeLabel: 'Change pin',
             ),
           const SizedBox(height: 12),
           _SectionCard(
@@ -541,11 +502,9 @@ class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
     required this.children,
-    this.subtitle,
   });
 
   final String title;
-  final String? subtitle;
   final List<Widget> children;
 
   @override
@@ -558,10 +517,6 @@ class _SectionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(title, style: theme.textTheme.titleMedium),
-            if (subtitle != null) ...[
-              const SizedBox(height: 4),
-              Text(subtitle!, style: theme.textTheme.bodySmall),
-            ],
             const SizedBox(height: 12),
             ...children,
           ],
@@ -571,10 +526,24 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _HubCard extends StatelessWidget {
-  const _HubCard({required this.pin, required this.onPick});
+class _PinCard extends StatelessWidget {
+  const _PinCard({
+    required this.title,
+    required this.subtitle,
+    required this.pin,
+    required this.onPick,
+    required this.emptyLabel,
+    required this.setLabel,
+    required this.changeLabel,
+  });
+
+  final String title;
+  final String subtitle;
   final DeliveryPin? pin;
   final VoidCallback onPick;
+  final String emptyLabel;
+  final String setLabel;
+  final String changeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -585,12 +554,9 @@ class _HubCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Hub', style: theme.textTheme.titleMedium),
+            Text(title, style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(
-              'Your distribution hub. Drop a pin where this account dispatches from.',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text(subtitle, style: theme.textTheme.bodySmall),
             const SizedBox(height: 12),
             if (pin == null)
               Container(
@@ -601,7 +567,7 @@ class _HubCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'No hub set yet',
+                  emptyLabel,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -618,7 +584,7 @@ class _HubCard extends StatelessWidget {
                       zoom: 14,
                       markers: [
                         DroneMapMarker(
-                          id: 'hub',
+                          id: 'pin',
                           position: LatLng(pin!.lat, pin!.lng),
                         ),
                       ],
@@ -638,10 +604,10 @@ class _HubCard extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              key: const Key('set-hub-button'),
+              key: Key('set-pin-${title.toLowerCase().replaceAll(' ', '-')}'),
               onPressed: onPick,
               icon: const Icon(Icons.place_outlined),
-              label: Text(pin == null ? 'Set hub' : 'Change hub'),
+              label: Text(pin == null ? setLabel : changeLabel),
             ),
           ],
         ),

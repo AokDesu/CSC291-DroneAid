@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'cart.dart';
@@ -49,6 +50,8 @@ class _PinPickerPage extends StatefulWidget {
 class _PinPickerPageState extends State<_PinPickerPage> {
   late LatLng _pin;
   late final TextEditingController _label;
+  final MapController _mapController = MapController();
+  bool _gpsBusy = false;
 
   @override
   void initState() {
@@ -65,6 +68,56 @@ class _PinPickerPageState extends State<_PinPickerPage> {
 
   void _onMapTap(TapPosition _, LatLng latlng) {
     setState(() => _pin = latlng);
+  }
+
+  Future<void> _useGps() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _gpsBusy = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Location services are off. Enable them and try again.',
+            ),
+          ),
+        );
+        return;
+      }
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Location permission permanently denied. Enable it in system settings.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (perm == LocationPermission.denied) return;
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
+      );
+      if (!mounted) return;
+      final next = LatLng(pos.latitude, pos.longitude);
+      setState(() => _pin = next);
+      _mapController.move(next, 15);
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not get location: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _gpsBusy = false);
+    }
   }
 
   void _save() {
@@ -93,6 +146,7 @@ class _PinPickerPageState extends State<_PinPickerPage> {
         children: [
           Expanded(
             child: FlutterMap(
+              mapController: _mapController,
               options: MapOptions(
                 initialCenter: _pin,
                 initialZoom: 13,
@@ -130,6 +184,19 @@ class _PinPickerPageState extends State<_PinPickerPage> {
                   '${_pin.latitude.toStringAsFixed(5)}, ${_pin.longitude.toStringAsFixed(5)}',
                   style: Theme.of(context).textTheme.titleMedium,
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: const Key('pin-picker-gps'),
+                  onPressed: _gpsBusy ? null : _useGps,
+                  icon: _gpsBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location),
+                  label: const Text('Use my location'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
