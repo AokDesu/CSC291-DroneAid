@@ -95,6 +95,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             name: _nameCtrl.text.trim(),
             phone: _phoneCtrl.text.trim(),
           );
+      // `userProfileProvider` retries until the user doc exists, then
+      // caches whichever snapshot it found first. That snapshot may
+      // be the `onUserCreated`-provisioned version with null name/phone
+      // (the updateProfile write lands a moment later). Invalidate to
+      // force a refetch so the user sees their typed name on /user/home
+      // without needing to log out and back in.
+      ref.invalidate(userProfileProvider);
       // Router redirect carries us to /user/home once userProfileProvider
       // resolves the freshly-provisioned doc.
     } on FirebaseAuthException catch (e) {
