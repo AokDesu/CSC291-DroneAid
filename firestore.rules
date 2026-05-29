@@ -86,6 +86,16 @@ service cloud.firestore {
       allow read: if isAdmin()
                   || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow write: if false;
+
+      // ─── requests/{reqId}/reports/{reportId} ────────────────────────────
+      // Owner reads own request's reports; admin reads all. Writes only
+      // through the reportDeliveryIssue callable (Admin SDK bypass).
+      match /reports/{reportId} {
+        allow read: if isAdmin()
+                    || (isSignedIn()
+                        && get(/databases/$(database)/documents/requests/$(reqId)).data.userId == request.auth.uid);
+        allow write: if false;
+      }
     }
 
     // ─── drones/{droneId} ───────────────────────────────────────────────────

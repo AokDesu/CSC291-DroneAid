@@ -17,6 +17,7 @@ setGlobalOptions({
 export { submitRequest } from "./callable/submitRequest";
 export { cancelRequest } from "./callable/cancelRequest";
 export { confirmDelivery } from "./callable/confirmDelivery";
+export { reportDeliveryIssue } from "./callable/reportDeliveryIssue";
 export { updateProfile } from "./callable/updateProfile";
 
 // ── Callable functions (admin) ──────────────────────────────────────────

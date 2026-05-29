@@ -74,7 +74,7 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
 
   Future<void> _reportProblem() async {
     final controller = TextEditingController();
-    final sent = await showDialog<bool>(
+    final message = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Report a problem'),
@@ -89,21 +89,43 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx, null),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              Navigator.pop(ctx, text);
+            },
             child: const Text('Send'),
           ),
         ],
       ),
     );
     controller.dispose();
-    if (sent == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coordinator notified.')),
+    if (message == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _loading = true);
+    try {
+      await FirebaseFunctions.instanceFor(region: _region)
+          .httpsCallable('reportDeliveryIssue')
+          .call<Map<String, dynamic>>({
+        'reqId': widget.reqId,
+        'message': message,
+      });
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Report sent. Coordinator notified.')),
       );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not send report: ${describeFunctionsError(e)}')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
