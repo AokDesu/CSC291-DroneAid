@@ -198,8 +198,9 @@ class _Body extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Changing to Storm can abort in-flight drones '
-                    '(20% per tick).',
+                    'Storm immediately recalls in-flight drones; new '
+                    'flights are blocked. Mid-flight: ~3% extra abort '
+                    'chance per tick.',
                     style: TextStyle(color: Colors.amber.shade900),
                   ),
                 ),

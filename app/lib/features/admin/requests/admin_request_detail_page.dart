@@ -170,6 +170,12 @@ class _AdminRequestDetailPageState
               else if (request.status == 'in_flight')
                 _InFlightCard(
                   onOpenControl: () => context.go('/admin/control'),
+                  onRecall: (_busy || request.currentFlightId == null)
+                      ? null
+                      : () => _openRecallDialog(
+                            context,
+                            request.currentFlightId!,
+                          ),
                 )
               else
                 _TerminalCard(request: request),
@@ -270,6 +276,41 @@ class _AdminRequestDetailPageState
         'note': result.note,
       },
       successMessage: 'Report resolved: ${result.outcome.label}.',
+    );
+  }
+
+  Future<void> _openRecallDialog(
+    BuildContext context,
+    String flightId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Recall this flight?'),
+        content: const Text(
+          'The drone will turn around and head back to base. The '
+          'request will be marked failed and the user will be notified.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: _coral),
+            child: const Text('Recall'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _runCallable(
+      'recallFlight',
+      {'flightId': flightId},
+      successMessage: 'Flight recalled. Drone returning to base.',
+      popOnSuccess: true,
     );
   }
 
@@ -1010,8 +1051,12 @@ class _DronePickerRow extends StatelessWidget {
 }
 
 class _InFlightCard extends StatelessWidget {
-  const _InFlightCard({required this.onOpenControl});
+  const _InFlightCard({
+    required this.onOpenControl,
+    required this.onRecall,
+  });
   final VoidCallback onOpenControl;
+  final VoidCallback? onRecall;
 
   @override
   Widget build(BuildContext context) {
@@ -1032,6 +1077,23 @@ class _InFlightCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: const Text('Open in Control map →'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('recall-button'),
+              onPressed: onRecall,
+              icon: const Icon(Icons.keyboard_return, color: _coral),
+              label: const Text(
+                'Recall drone',
+                style: TextStyle(color: _coral),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: _coral),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
             ),
           ],
         ),

@@ -66,6 +66,51 @@ class _ControlPageState extends ConsumerState<ControlPage>
     }
   }
 
+  static const _recallableStatuses = {'enroute', 'delivering'};
+
+  Future<void> _recall(FlightDoc flight) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recall this flight?'),
+        content: const Text(
+          'The drone will turn around and head back to base. The request '
+          'will be marked failed and the user will be notified.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Recall'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final fns = FirebaseFunctions.instanceFor(region: _functionsRegion);
+      await fns
+          .httpsCallable('recallFlight')
+          .call<Map<String, dynamic>>({'flightId': flight.id});
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Flight recalled. Drone returning.')),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Recall failed: ${e.message ?? e.code}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Recall failed: $e')));
+    }
+  }
+
   void _showSheet(BuildContext context, FlightDoc flight) {
     final now = DateTime.now();
     final snap = flightSnapshot(
@@ -78,6 +123,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
       now: now,
     );
     final eta = etaRemaining(flight.etaAt, now);
+    final canRecall = _recallableStatuses.contains(flight.status);
 
     showModalBottomSheet<void>(
       context: context,
@@ -108,6 +154,16 @@ class _ControlPageState extends ConsumerState<ControlPage>
               },
               child: const Text('View request →'),
             ),
+            if (canRecall)
+              TextButton(
+                key: Key('recall-${flight.id}'),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _recall(flight);
+                },
+                child: const Text('Recall drone'),
+              ),
           ],
         ),
       ),
