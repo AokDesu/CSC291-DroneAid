@@ -41,9 +41,9 @@ class AdminRequest {
   final String? rejectReason;
 
   factory AdminRequest.fromSnap(
-    QueryDocumentSnapshot<Map<String, dynamic>> snap,
+    DocumentSnapshot<Map<String, dynamic>> snap,
   ) {
-    final data = snap.data();
+    final data = snap.data() ?? const <String, dynamic>{};
     final rawItems = (data['items'] as List?) ?? const [];
     final items = rawItems
         .whereType<Map<String, dynamic>>()
