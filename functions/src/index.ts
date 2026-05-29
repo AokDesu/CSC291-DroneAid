@@ -30,6 +30,7 @@ export { toggleDroneMaintenance } from "./callable/toggleDroneMaintenance";
 export { createDrone } from "./callable/createDrone";
 export { editDrone } from "./callable/editDrone";
 export { retireDrone } from "./callable/retireDrone";
+export { collectDrone } from "./callable/collectDrone";
 export { createCatalogItem } from "./callable/createCatalogItem";
 export { editCatalogItem } from "./callable/editCatalogItem";
 export { toggleCatalogActive } from "./callable/toggleCatalogActive";

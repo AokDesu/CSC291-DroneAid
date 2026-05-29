@@ -129,6 +129,50 @@ class _ControlPageState extends ConsumerState<ControlPage>
     }
   }
 
+  Future<void> _collectDrone(FlightDoc flight) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Collect this drone?'),
+        content: const Text(
+          'Skips the return-trip simulation. The drone enters maintenance '
+          'with the round-trip battery drain applied. Use this when you '
+          'do not want to wait the simulated travel time.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Collect'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final fns = FirebaseFunctions.instanceFor(region: _functionsRegion);
+      await fns
+          .httpsCallable('collectDrone')
+          .call<Map<String, dynamic>>({'droneId': flight.droneId});
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Drone collected. Now in maintenance.')),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Collect failed: ${e.message ?? e.code}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Collect failed: $e')));
+    }
+  }
+
   void _showSheet(BuildContext context, FlightDoc flight) {
     final now = DateTime.now();
     final snap = flightSnapshot(
@@ -142,6 +186,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
     );
     final eta = etaRemaining(flight.etaAt, now);
     final canRecall = _recallableStatuses.contains(flight.status);
+    final canCollect = flight.status == 'returning';
 
     showModalBottomSheet<void>(
       context: context,
@@ -181,6 +226,16 @@ class _ControlPageState extends ConsumerState<ControlPage>
                   _recall(flight);
                 },
                 child: const Text('Recall drone'),
+              ),
+            if (canCollect)
+              TextButton.icon(
+                key: Key('collect-${flight.id}'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _collectDrone(flight);
+                },
+                icon: const Icon(Icons.flight_land),
+                label: const Text('Collect drone (skip return trip)'),
               ),
           ],
         ),
