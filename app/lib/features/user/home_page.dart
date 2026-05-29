@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
 import '../../core/widgets/loading_placeholder.dart';
+import '../admin/inventory/catalog_icons.dart';
 import 'request/cart.dart';
 import 'request/catalog.dart';
 import 'request/pin_picker.dart';
@@ -113,25 +114,6 @@ class _CatalogRow extends StatelessWidget {
   final int qty;
   final ValueChanged<int> onChanged;
 
-  IconData get _iconData {
-    switch (entry.icon) {
-      case 'food':
-        return Icons.restaurant;
-      case 'water':
-        return Icons.water_drop;
-      case 'med':
-        return Icons.medical_services;
-      case 'baby':
-        return Icons.child_friendly;
-      case 'blanket':
-        return Icons.bed;
-      case 'light':
-        return Icons.flashlight_on;
-      default:
-        return Icons.inventory_2;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -140,7 +122,7 @@ class _CatalogRow extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
-        leading: CircleAvatar(child: Icon(_iconData)),
+        leading: CircleAvatar(child: Icon(resolveCatalogIcon(entry.icon))),
         title: Text(
           entry.name,
           style: theme.textTheme.titleMedium?.copyWith(
