@@ -1,12 +1,16 @@
 // Riverpod providers for the admin fleet pages.
 //
-// `adminDronesStreamProvider`     — P-A-03 list of every drone, name-sorted.
-// `droneDocStreamProvider(id)`    — P-A-04 single drone doc; emits null if the
-//                                    doc disappears mid-session.
+// `adminDronesStreamProvider`         — P-A-03 list of every drone, name-sorted.
+// `droneDocStreamProvider(id)`        — P-A-04 single drone doc; emits null if
+//                                        the doc disappears mid-session.
+// `flightsByDroneStreamProvider(id)`  — P-A-04 recent flights for a drone,
+//                                        newest-first, capped at 20. Admin-only
+//                                        per firestore.rules /flights match.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../user/tracking/flight_provider.dart' show FlightDoc;
 import 'drone.dart';
 
 final adminDronesStreamProvider = StreamProvider<List<Drone>>((ref) {
@@ -23,4 +27,15 @@ final droneDocStreamProvider =
     if (!snap.exists) return null;
     return Drone.fromSnap(snap);
   });
+});
+
+final flightsByDroneStreamProvider =
+    StreamProvider.family<List<FlightDoc>, String>((ref, droneId) {
+  return FirebaseFirestore.instance
+      .collection('flights')
+      .where('droneId', isEqualTo: droneId)
+      .orderBy('takeoffAt', descending: true)
+      .limit(20)
+      .snapshots()
+      .map((snap) => snap.docs.map(FlightDoc.fromSnap).toList(growable: false));
 });

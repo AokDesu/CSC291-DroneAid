@@ -9,8 +9,10 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/widgets/battery_bar.dart';
+import '../../user/tracking/flight_provider.dart' show flightStreamProvider;
 import '../drones_page.dart' show droneStatusColor, droneStatusLabel;
 import 'drone.dart';
 import 'drone_providers.dart';
@@ -87,12 +89,12 @@ class AdminDroneDetailPage extends ConsumerWidget {
   }
 }
 
-class _DroneDetailBody extends StatelessWidget {
+class _DroneDetailBody extends ConsumerWidget {
   const _DroneDetailBody({required this.drone});
   final Drone drone;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final flying = drone.status == 'flying';
     final statusColor = droneStatusColor(drone.status, theme.colorScheme);
@@ -203,9 +205,162 @@ class _DroneDetailBody extends StatelessWidget {
             ),
           ],
         ),
+        if (drone.currentFlightId != null) ...[
+          const SizedBox(height: 24),
+          Text('Current flight', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          _CurrentFlightPanel(flightId: drone.currentFlightId!),
+        ],
+        const SizedBox(height: 24),
+        Text('Recent flights', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        _RecentFlightsList(droneId: drone.id),
       ],
     );
   }
+}
+
+class _CurrentFlightPanel extends ConsumerWidget {
+  const _CurrentFlightPanel({required this.flightId});
+  final String flightId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(flightStreamProvider(flightId));
+    return async.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: LinearProgressIndicator(),
+      ),
+      error: (e, _) => Text(
+        'Failed to load flight: $e',
+        key: const Key('drone-detail-flight-error'),
+      ),
+      data: (flight) {
+        if (flight == null) {
+          return const Text(
+            'Flight not found.',
+            key: Key('drone-detail-flight-missing'),
+          );
+        }
+        return Card(
+          key: const Key('drone-detail-current-flight'),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        flight.id,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    _StatusPill(status: flight.status),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _kv('To', '${flight.destination.latitude.toStringAsFixed(4)}, '
+                    '${flight.destination.longitude.toStringAsFixed(4)}'),
+                _kv('Takeoff', _fmtTs(flight.takeoffAt)),
+                _kv('ETA', _fmtTs(flight.etaAt)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RecentFlightsList extends ConsumerWidget {
+  const _RecentFlightsList({required this.droneId});
+  final String droneId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(flightsByDroneStreamProvider(droneId));
+    return async.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: LinearProgressIndicator(),
+      ),
+      error: (e, _) => Text(
+        'Failed to load history: $e',
+        key: const Key('drone-detail-history-error'),
+      ),
+      data: (flights) {
+        if (flights.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'No flights yet.',
+              key: Key('drone-detail-history-empty'),
+            ),
+          );
+        }
+        return Column(
+          key: const Key('drone-detail-history'),
+          children: [
+            for (final f in flights)
+              ListTile(
+                key: Key('drone-detail-history-${f.id}'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(f.id),
+                subtitle: Text(_fmtTs(f.takeoffAt)),
+                trailing: _StatusPill(status: f.status),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSecondaryContainer,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+Widget _kv(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(label, style: const TextStyle(fontSize: 12)),
+        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+      ],
+    ),
+  );
+}
+
+String _fmtTs(DateTime when) {
+  return DateFormat('MMM d, h:mm a').format(when.toLocal());
 }
 
 class _MetricRow extends StatelessWidget {

@@ -3,9 +3,11 @@
 import 'package:droneaid/features/admin/drones/drone.dart';
 import 'package:droneaid/features/admin/drones/drone_detail_page.dart';
 import 'package:droneaid/features/admin/drones/drone_providers.dart';
+import 'package:droneaid/features/user/tracking/flight_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() {
   group('relativeTime', () {
@@ -154,7 +156,75 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Drone not found.'), findsOneWidget);
     });
+
+    testWidgets('renders current-flight panel when drone has currentFlightId',
+        (tester) async {
+      final flight = _flight(id: 'flt-101', droneId: 'drn-005');
+      await _pump(
+        tester,
+        drone: _drone(
+          id: 'drn-005',
+          status: 'flying',
+          currentFlightId: 'flt-101',
+        ),
+        currentFlight: flight,
+        recentFlights: [flight],
+      );
+
+      expect(find.byKey(const Key('drone-detail-current-flight')), findsOneWidget);
+      expect(find.text('flt-101'), findsWidgets);
+    });
+
+    testWidgets('omits current-flight panel when no currentFlightId',
+        (tester) async {
+      await _pump(tester, drone: _drone(id: 'drn-006', status: 'idle'));
+      expect(find.byKey(const Key('drone-detail-current-flight')), findsNothing);
+    });
+
+    testWidgets('renders recent-flights list with rows per flight',
+        (tester) async {
+      await _pump(
+        tester,
+        drone: _drone(id: 'drn-007', status: 'idle'),
+        recentFlights: [
+          _flight(id: 'flt-1', droneId: 'drn-007'),
+          _flight(id: 'flt-2', droneId: 'drn-007', status: 'completed'),
+        ],
+      );
+
+      expect(find.byKey(const Key('drone-detail-history')), findsOneWidget);
+      expect(find.byKey(const Key('drone-detail-history-flt-1')), findsOneWidget);
+      expect(find.byKey(const Key('drone-detail-history-flt-2')), findsOneWidget);
+    });
+
+    testWidgets('recent-flights empty state when drone has no history',
+        (tester) async {
+      await _pump(tester, drone: _drone(id: 'drn-008', status: 'idle'));
+      expect(find.byKey(const Key('drone-detail-history-empty')), findsOneWidget);
+    });
   });
+}
+
+FlightDoc _flight({
+  required String id,
+  required String droneId,
+  String status = 'enroute',
+}) {
+  final now = DateTime.utc(2026, 5, 29, 10, 0, 0);
+  return FlightDoc(
+    id: id,
+    requestId: 'req-1',
+    userId: 'u-1',
+    droneId: droneId,
+    origin: const LatLng(13.74, 100.54),
+    destination: const LatLng(13.75, 100.55),
+    takeoffAt: now,
+    etaAt: now.add(const Duration(minutes: 10)),
+    speedKmh: 15.0,
+    weatherModifier: 1.0,
+    batteryAtTakeoff: 100.0,
+    status: status,
+  );
 }
 
 Drone _drone({
@@ -165,6 +235,7 @@ Drone _drone({
   double maxPayloadKg = 6.0,
   double baseLat = 13.74,
   double baseLng = 100.54,
+  String? currentFlightId,
 }) {
   return Drone(
     id: id,
@@ -174,18 +245,26 @@ Drone _drone({
     baseLat: baseLat,
     baseLng: baseLng,
     maxPayloadKg: maxPayloadKg,
+    currentFlightId: currentFlightId,
   );
 }
 
 Future<void> _pump(
   WidgetTester tester, {
   required Drone drone,
+  FlightDoc? currentFlight,
+  List<FlightDoc> recentFlights = const [],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         droneDocStreamProvider(drone.id)
             .overrideWith((ref) => Stream.value(drone)),
+        if (drone.currentFlightId != null)
+          flightStreamProvider(drone.currentFlightId!)
+              .overrideWith((ref) => Stream.value(currentFlight)),
+        flightsByDroneStreamProvider(drone.id)
+            .overrideWith((ref) => Stream.value(recentFlights)),
       ],
       child: MaterialApp(
         home: AdminDroneDetailPage(droneId: drone.id),
