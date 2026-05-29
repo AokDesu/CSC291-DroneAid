@@ -73,37 +73,10 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
   }
 
   Future<void> _reportProblem() async {
-    final controller = TextEditingController();
     final message = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Report a problem'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'Describe the issue…',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final text = controller.text.trim();
-              if (text.isEmpty) return;
-              Navigator.pop(ctx, text);
-            },
-            child: const Text('Send'),
-          ),
-        ],
-      ),
+      builder: (_) => const _ReportDialog(),
     );
-    controller.dispose();
     if (message == null || !mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
@@ -190,6 +163,63 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Dialog whose State owns the TextEditingController, so its dispose()
+/// runs as part of the dialog teardown — never inline after `await`,
+/// which is what was crashing the app with the _dependents.isEmpty
+/// assertion during dialog dismissal.
+class _ReportDialog extends StatefulWidget {
+  const _ReportDialog();
+
+  @override
+  State<_ReportDialog> createState() => _ReportDialogState();
+}
+
+class _ReportDialogState extends State<_ReportDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Report a problem'),
+      content: TextField(
+        controller: _controller,
+        maxLines: 3,
+        decoration: const InputDecoration(
+          hintText: 'Describe the issue…',
+          border: OutlineInputBorder(),
+        ),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            final text = _controller.text.trim();
+            if (text.isEmpty) return;
+            Navigator.pop(context, text);
+          },
+          child: const Text('Send'),
+        ),
+      ],
     );
   }
 }
