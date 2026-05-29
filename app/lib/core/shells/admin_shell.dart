@@ -32,6 +32,15 @@ class _AdminShellState extends ConsumerState<AdminShell>
 
   late final TabController _controller;
 
+  /// True while a programmatic `animateTo` is running (deep-link sync,
+  /// More-sheet fallback). The TabController listener fires on every
+  /// index change — user-tapped AND programmatic — and we only want
+  /// the user-tap branch to navigate. Without this guard, navigating
+  /// to a non-primary route (e.g. /admin/weather, /admin/notifications)
+  /// would trigger the sync animateTo, which would re-fire the listener
+  /// and `context.go` back to the primary fallback tab (Requests).
+  bool _syncing = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,11 +58,16 @@ class _AdminShellState extends ConsumerState<AdminShell>
 
   void _onTabSelected() {
     if (!_controller.indexIsChanging) return;
+    if (_syncing) {
+      _syncing = false;
+      return;
+    }
     final i = _controller.index;
     if (i == _tabs.length) {
       // "More" — pop sheet, snap selection back to the active primary tab.
       _showMoreSheet();
       final fallback = _primaryIndexFor(GoRouterState.of(context).matchedLocation);
+      _syncing = true;
       _controller.animateTo(fallback);
       return;
     }
@@ -78,7 +92,9 @@ class _AdminShellState extends ConsumerState<AdminShell>
         !_controller.indexIsChanging) {
       // Sync underline to the currently active route (e.g. after deep link).
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _controller.animateTo(primaryIndex);
+        if (!mounted) return;
+        _syncing = true;
+        _controller.animateTo(primaryIndex);
       });
     }
 

@@ -47,6 +47,33 @@ class NotificationsPage extends ConsumerWidget {
         .update({'readAt': FieldValue.serverTimestamp()});
   }
 
+  Future<void> _markAllRead(
+    BuildContext context,
+    String uid,
+    List<AppNotification> notifications,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final unread = notifications.where((n) => n.isUnread).toList();
+    if (unread.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final n in unread) {
+      batch.update(
+        FirebaseFirestore.instance.doc('users/$uid/notifications/${n.id}'),
+        {'readAt': FieldValue.serverTimestamp()},
+      );
+    }
+    try {
+      await batch.commit();
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Marked ${unread.length} as read.')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(notificationsProvider);
@@ -64,54 +91,81 @@ class NotificationsPage extends ConsumerWidget {
               helper: 'Updates about your drone deliveries will show up here.',
             );
           }
-          return ListView.separated(
-            itemCount: notifications.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, i) {
-              final n = notifications[i];
-              return ListTile(
-                leading: Icon(
-                  Icons.notifications,
-                  color: n.isUnread
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.outline,
-                ),
-                title: Text(
-                  n.title,
-                  style: TextStyle(
-                    fontWeight:
-                        n.isUnread ? FontWeight.bold : FontWeight.normal,
+          final hasUnread = notifications.any((n) => n.isUnread);
+          return Column(
+            children: [
+              if (hasUnread)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      key: const Key('mark-all-read'),
+                      onPressed: () =>
+                          _markAllRead(context, uid, notifications),
+                      icon: const Icon(Icons.done_all),
+                      label: const Text('Mark all as read'),
+                    ),
                   ),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(n.body, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    Text(
-                      relativeTime(n.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-                isThreeLine: true,
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  if (n.isUnread) await _markRead(uid, n.id);
-                  final exists = await _destinationExists(n.deepLink);
-                  if (!context.mounted) return;
-                  if (!exists) {
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content:
-                            Text('This notification is no longer available.'),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: notifications.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final n = notifications[i];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.notifications,
+                        color: n.isUnread
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outline,
                       ),
+                      title: Text(
+                        n.title,
+                        style: TextStyle(
+                          fontWeight: n.isUnread
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            n.body,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            relativeTime(n.createdAt),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      isThreeLine: true,
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        if (n.isUnread) await _markRead(uid, n.id);
+                        final exists = await _destinationExists(n.deepLink);
+                        if (!context.mounted) return;
+                        if (!exists) {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'This notification is no longer available.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        context.go(n.deepLink);
+                      },
                     );
-                    return;
-                  }
-                  context.go(n.deepLink);
-                },
-              );
-            },
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
