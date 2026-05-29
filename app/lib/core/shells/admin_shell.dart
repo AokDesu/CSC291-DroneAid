@@ -25,6 +25,7 @@ class _AdminShellState extends ConsumerState<AdminShell>
     with SingleTickerProviderStateMixin {
   static const _tabs = <_AdminTabSpec>[
     _AdminTabSpec(route: '/admin/requests', label: 'Requests', icon: Icons.assignment),
+    _AdminTabSpec(route: '/admin/reports',  label: 'Reports',  icon: Icons.report_outlined),
     _AdminTabSpec(route: '/admin/drones',   label: 'Drones',   icon: Icons.flight),
     _AdminTabSpec(route: '/admin/control',  label: 'Control',  icon: Icons.map),
   ];
@@ -34,8 +35,8 @@ class _AdminShellState extends ConsumerState<AdminShell>
   @override
   void initState() {
     super.initState();
-    // 4 tabs total: 3 primary destinations + "More" sheet trigger.
-    _controller = TabController(length: 4, vsync: this);
+    // 5 tabs total: 4 primary destinations + "More" sheet trigger.
+    _controller = TabController(length: _tabs.length + 1, vsync: this);
     _controller.addListener(_onTabSelected);
   }
 
@@ -49,7 +50,7 @@ class _AdminShellState extends ConsumerState<AdminShell>
   void _onTabSelected() {
     if (!_controller.indexIsChanging) return;
     final i = _controller.index;
-    if (i == 3) {
+    if (i == _tabs.length) {
       // "More" — pop sheet, snap selection back to the active primary tab.
       _showMoreSheet();
       final fallback = _primaryIndexFor(GoRouterState.of(context).matchedLocation);
@@ -96,6 +97,8 @@ class _AdminShellState extends ConsumerState<AdminShell>
         ],
         bottom: TabBar(
           controller: _controller,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
             for (final t in _tabs)
               Tab(icon: Icon(t.icon), text: t.label),

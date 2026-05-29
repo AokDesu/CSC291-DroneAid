@@ -11,8 +11,7 @@ import 'requests/admin_requests_provider.dart';
 
 /// Pure helper — "Just now", "7 min ago", "Yesterday", "Mar 14". Mirrors
 /// the user-side helper, kept local so this page stays decoupled from the
-/// user-side queue PR until that lands.
-@visibleForTesting
+/// user-side queue PR until that lands. Also reused by reports_page.
 String relativeAge(DateTime? when, {DateTime? now}) {
   if (when == null) return '—';
   final ref = now ?? DateTime.now();

@@ -15,6 +15,7 @@ import '../features/admin/control_page.dart';
 import '../features/admin/drones/drone_detail_page.dart';
 import '../features/admin/drones_page.dart';
 import '../features/admin/inventory_page.dart';
+import '../features/admin/reports_page.dart';
 import '../features/admin/requests/admin_request_detail_page.dart';
 import '../features/admin/requests_page.dart';
 import '../features/admin/weather_page.dart';
@@ -83,6 +84,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __, child) => AdminShell(child: child),
         routes: [
           GoRoute(path: '/admin/requests',  builder: (_, __) => const AdminRequestsPage()),
+          GoRoute(path: '/admin/reports',   builder: (_, __) => const AdminReportsPage()),
           GoRoute(path: '/admin/drones',    builder: (_, __) => const AdminDronesPage()),
           GoRoute(path: '/admin/control',   builder: (_, __) => const ControlPage()),
           GoRoute(path: '/admin/weather',   builder: (_, __) => const AdminWeatherPage()),
