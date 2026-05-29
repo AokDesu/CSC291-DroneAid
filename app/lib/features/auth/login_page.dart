@@ -236,8 +236,15 @@ class _CrashTestCardState extends State<_CrashTestCard> {
   }
 
   Future<void> _refreshCollectionState() async {
-    final enabled =
-        FirebaseCrashlytics.instance.isCrashlyticsCollectionEnabled;
+    bool? enabled;
+    try {
+      enabled = FirebaseCrashlytics.instance.isCrashlyticsCollectionEnabled;
+    } catch (_) {
+      // FirebaseCrashlytics not initialised (e.g. widget test without
+      // Firebase.initializeApp). Leave the state unknown; the card will
+      // render a placeholder.
+      enabled = null;
+    }
     if (!mounted) return;
     setState(() => _collectionEnabled = enabled);
   }

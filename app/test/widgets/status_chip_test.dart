@@ -19,12 +19,12 @@ void main() {
   group('StatusChip', () {
     final cases = <String, Color>{
       'pending': Colors.blue,
-      'approved': Colors.green,
+      'approved': Colors.teal,
       'rejected': Colors.red,
       'in_flight': Colors.orange,
-      'completed': Colors.grey,
-      'cancelled': Colors.grey,
-      'aborted': Colors.red,
+      'completed': Colors.green,
+      'cancelled': Colors.blueGrey,
+      'aborted': Colors.red.shade700,
     };
 
     cases.forEach((status, expected) {

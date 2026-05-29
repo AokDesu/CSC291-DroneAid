@@ -102,13 +102,13 @@ void main() {
       await tester.tap(find.byKey(const Key('filter-offline')));
       await tester.pumpAndSettle();
 
-      expect(find.text('No drones in this filter.'), findsOneWidget);
+      expect(find.text('No drones in this filter'), findsOneWidget);
     });
 
     testWidgets('shows zero-fleet empty state when stream is empty',
         (tester) async {
       await _pump(tester, drones: const []);
-      expect(find.text('No drones yet.'), findsOneWidget);
+      expect(find.text('No drones yet'), findsOneWidget);
     });
 
     testWidgets('tapping a card navigates to /admin/drones/:id',

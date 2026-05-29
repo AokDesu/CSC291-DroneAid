@@ -12,16 +12,14 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
-  testWidgets('Create account button is disabled until form valid + terms ticked',
+  testWidgets('Create account button is disabled until form valid',
       (tester) async {
     await tester.pumpWidget(_wrap(const RegisterPage()));
 
     Finder createBtn() => find.widgetWithText(FilledButton, 'Create account');
     expect(tester.widget<FilledButton>(createBtn()).onPressed, isNull);
 
-    // Fill valid fields but leave terms unchecked.
-    // 1100000000101 is the seeded "Mali" demo account — passes the Thai-ID
-    // checksum.
+    // Fill the required fields. Phone is optional now.
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Full name'),
       'New User',
@@ -33,10 +31,6 @@ void main() {
       '1100100000018',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Phone (e.g. +66 81 ...)'),
-      '+66811112222',
-    );
-    await tester.enterText(
       find.widgetWithText(TextFormField, 'Password'),
       'StrongP@ss',
     );
@@ -45,15 +39,7 @@ void main() {
       'StrongP@ss',
     );
     await tester.pump();
-    expect(
-      tester.widget<FilledButton>(createBtn()).onPressed,
-      isNull,
-      reason: 'terms checkbox not yet ticked',
-    );
-
-    // Tick the terms.
-    await tester.tap(find.byType(Checkbox));
-    await tester.pump();
+    // No terms checkbox gate any more — form should be submittable now.
     expect(tester.widget<FilledButton>(createBtn()).onPressed, isNotNull);
   });
 }
