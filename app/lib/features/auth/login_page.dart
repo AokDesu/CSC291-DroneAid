@@ -2,6 +2,7 @@
 // Layout + behaviour mirror docs/10-prototype-design.md §P-U-01.
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -154,7 +155,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: const Text('New here?  Create an account →'),
                 ),
                 const SizedBox(height: 32),
-                if (kShowDevSurfaces) const _DemoAccountsCard(),
+                if (kShowDevSurfaces) ...[
+                  const _DemoAccountsCard(),
+                  const SizedBox(height: 12),
+                  const _CrashTestCard(),
+                ],
               ],
             ),
             ],
@@ -189,6 +194,97 @@ class _DemoAccountsCard extends StatelessWidget {
             Text(
               'Admin         1100000000008 · Admin#001',
               style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Crashlytics test surface.
+///
+/// Crashlytics collection is disabled in debug unless you run with:
+///   flutter run --dart-define=FORCE_CRASHLYTICS=true
+/// (or use a release build). Without that flag, the buttons below
+/// still fire but no upload happens — the crash is swallowed locally.
+///
+/// Verification flow:
+///   1. flutter run --dart-define=FORCE_CRASHLYTICS=true
+///   2. Tap "Force fatal crash" — app dies.
+///   3. Restart the app. Crashlytics uploads the previous crash on launch.
+///   4. Firebase Console → Crashlytics → see the event within a few minutes.
+///
+/// Non-fatal uploads immediately (no app restart needed) and shows under
+/// the "non-fatals" tab.
+class _CrashTestCard extends StatelessWidget {
+  const _CrashTestCard();
+
+  void _forceFatalCrash() {
+    // Crashes the process. Use after running with FORCE_CRASHLYTICS=true.
+    FirebaseCrashlytics.instance.crash();
+  }
+
+  void _recordNonFatal() {
+    FirebaseCrashlytics.instance.recordError(
+      Exception('Test non-fatal error from DroneAid login screen'),
+      StackTrace.current,
+      reason: 'manual crash-test card',
+      fatal: false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Crashlytics test',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Run with --dart-define=FORCE_CRASHLYTICS=true to enable '
+              'uploads in debug. Fatal crash uploads on next app launch.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('crashlytics-non-fatal'),
+                    onPressed: () {
+                      _recordNonFatal();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Non-fatal recorded. Check Crashlytics.'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.warning_amber_outlined),
+                    label: const Text('Non-fatal'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('crashlytics-force-crash'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    onPressed: _forceFatalCrash,
+                    icon: const Icon(Icons.dangerous_outlined),
+                    label: const Text('Force crash'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
