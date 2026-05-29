@@ -18,12 +18,22 @@ class CatalogIconOption {
 }
 
 const catalogIcons = <CatalogIconOption>[
-  CatalogIconOption(key: 'food',    label: 'Food',    icon: Icons.restaurant),
-  CatalogIconOption(key: 'water',   label: 'Water',   icon: Icons.water_drop),
-  CatalogIconOption(key: 'med',     label: 'Medical', icon: Icons.medical_services),
-  CatalogIconOption(key: 'baby',    label: 'Baby',    icon: Icons.child_friendly),
-  CatalogIconOption(key: 'blanket', label: 'Blanket', icon: Icons.bed),
-  CatalogIconOption(key: 'light',   label: 'Light',   icon: Icons.flashlight_on),
+  CatalogIconOption(key: 'food',     label: 'Food',     icon: Icons.restaurant),
+  CatalogIconOption(key: 'water',    label: 'Water',    icon: Icons.water_drop),
+  CatalogIconOption(key: 'med',      label: 'Medical',  icon: Icons.medical_services),
+  CatalogIconOption(key: 'baby',     label: 'Baby',     icon: Icons.child_friendly),
+  CatalogIconOption(key: 'blanket',  label: 'Blanket',  icon: Icons.bed),
+  CatalogIconOption(key: 'light',    label: 'Light',    icon: Icons.flashlight_on),
+  CatalogIconOption(key: 'shelter',  label: 'Shelter',  icon: Icons.cabin),
+  CatalogIconOption(key: 'hygiene',  label: 'Hygiene',  icon: Icons.soap),
+  CatalogIconOption(key: 'battery',  label: 'Battery',  icon: Icons.battery_full),
+  CatalogIconOption(key: 'clothing', label: 'Clothing', icon: Icons.checkroom),
+  CatalogIconOption(key: 'radio',    label: 'Radio',    icon: Icons.radio),
+  CatalogIconOption(key: 'tools',    label: 'Tools',    icon: Icons.handyman),
+  CatalogIconOption(key: 'fuel',     label: 'Fuel',     icon: Icons.local_gas_station),
+  CatalogIconOption(key: 'mask',     label: 'Mask',     icon: Icons.masks),
+  CatalogIconOption(key: 'docs',     label: 'Docs',     icon: Icons.description),
+  CatalogIconOption(key: 'pet',      label: 'Pet',      icon: Icons.pets),
 ];
 
 /// Looks up the IconData for a stored `icon` key. Unknown / null keys
