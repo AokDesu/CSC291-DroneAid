@@ -15,10 +15,14 @@ import {
   assertFails,
 } from "@firebase/rules-unit-testing";
 import {
+  collectionGroup,
   doc,
   getDoc,
+  getDocs,
+  query,
   setDoc,
   updateDoc,
+  where,
   deleteDoc,
 } from "firebase/firestore";
 
@@ -114,6 +118,14 @@ beforeEach(async () => {
       deepLink: "/user/home",
       readAt: null,
       createdAt: 0,
+    });
+    await setDoc(doc(db, "requests/req-mali/reports/rep-1"), {
+      uid: "user-mali",
+      message: "Package never arrived",
+      status: "open",
+      createdAt: 0,
+      requestStatus: "delivered",
+      flightId: "flt-mali",
     });
   });
 });
@@ -226,6 +238,48 @@ describe("requests/{reqId}", () => {
 
   it("client update denied (even for admin)", () =>
     assertFails(updateDoc(doc(admin(), "requests/req-mali"), { status: "approved" })));
+});
+
+// ─── requests/{reqId}/reports/{reportId} ─────────────────────────────────
+describe("requests/{reqId}/reports/{reportId}", () => {
+  it("owner reads own request's report", () =>
+    assertSucceeds(getDoc(doc(mali(), "requests/req-mali/reports/rep-1"))));
+
+  it("other user denied", () =>
+    assertFails(getDoc(doc(naree(), "requests/req-mali/reports/rep-1"))));
+
+  it("admin reads any report", () =>
+    assertSucceeds(getDoc(doc(admin(), "requests/req-mali/reports/rep-1"))));
+
+  it("anon denied", () =>
+    assertFails(getDoc(doc(anon(), "requests/req-mali/reports/rep-1"))));
+
+  it("client create denied (owner)", () =>
+    assertFails(setDoc(doc(mali(), "requests/req-mali/reports/forged"), {
+      uid: "user-mali",
+      message: "x",
+      status: "open",
+      createdAt: 0,
+    })));
+
+  it("client update denied (admin)", () =>
+    assertFails(updateDoc(doc(admin(), "requests/req-mali/reports/rep-1"), {
+      status: "resolved",
+    })));
+
+  it("admin collectionGroup read succeeds", () =>
+    assertSucceeds(
+      getDocs(
+        query(collectionGroup(admin(), "reports"), where("status", "==", "open")),
+      ),
+    ));
+
+  it("user collectionGroup read denied", () =>
+    assertFails(
+      getDocs(
+        query(collectionGroup(mali(), "reports"), where("status", "==", "open")),
+      ),
+    ));
 });
 
 // ─── drones ───────────────────────────────────────────────────────────────

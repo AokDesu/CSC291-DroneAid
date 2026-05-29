@@ -10,6 +10,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/widgets/drone_map.dart';
 import '../../../core/widgets/status_chip.dart';
+import '../../reports/report.dart';
+import '../../reports/reports_providers.dart';
 import '../drones/drone.dart';
 import '../drones/drone_providers.dart';
 import 'admin_request.dart';
@@ -82,6 +84,7 @@ class _AdminRequestDetailPageState
     final names =
         ref.watch(userNamesProvider).valueOrNull ?? const <String, String>{};
     final dronesAsync = ref.watch(adminDronesStreamProvider);
+    final reportsAsync = ref.watch(requestReportsProvider(widget.reqId));
 
     return Scaffold(
       backgroundColor: _bg,
@@ -113,6 +116,23 @@ class _AdminRequestDetailPageState
               const SizedBox(height: 12),
               _DeliveryCard(request: request),
               const SizedBox(height: 12),
+              reportsAsync.maybeWhen(
+                data: (reports) {
+                  if (reports.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _ReportsCard(
+                      reports: reports,
+                      busy: _busy,
+                      onResolve: (r) =>
+                          _openResolveSheet(context, request.id, r),
+                      onDismiss: (r) =>
+                          _openDismissSheet(context, request.id, r),
+                    ),
+                  );
+                },
+                orElse: () => const SizedBox.shrink(),
+              ),
               if (request.status == 'pending')
                 _PendingActions(
                   onApprove: _busy
@@ -150,6 +170,12 @@ class _AdminRequestDetailPageState
               else if (request.status == 'in_flight')
                 _InFlightCard(
                   onOpenControl: () => context.go('/admin/control'),
+                  onRecall: (_busy || request.currentFlightId == null)
+                      ? null
+                      : () => _openRecallDialog(
+                            context,
+                            request.currentFlightId!,
+                          ),
                 )
               else
                 _TerminalCard(request: request),
@@ -225,6 +251,90 @@ class _AdminRequestDetailPageState
       popOnSuccess: true,
     );
   }
+
+  Future<void> _openResolveSheet(
+    BuildContext context,
+    String reqId,
+    Report report,
+  ) async {
+    final result = await showModalBottomSheet<_ResolveSheetResult>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _ResolveSheet(report: report),
+    );
+    if (result == null) return;
+    await _runCallable(
+      'resolveReport',
+      {
+        'reqId': reqId,
+        'reportId': report.id,
+        'outcome': result.outcome.wire,
+        'note': result.note,
+      },
+      successMessage: 'Report resolved: ${result.outcome.label}.',
+    );
+  }
+
+  Future<void> _openRecallDialog(
+    BuildContext context,
+    String flightId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Recall this flight?'),
+        content: const Text(
+          'The drone will turn around and head back to base. The '
+          'request will be marked failed and the user will be notified.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: _coral),
+            child: const Text('Recall'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _runCallable(
+      'recallFlight',
+      {'flightId': flightId},
+      successMessage: 'Flight recalled. Drone returning to base.',
+      popOnSuccess: true,
+    );
+  }
+
+  Future<void> _openDismissSheet(
+    BuildContext context,
+    String reqId,
+    Report report,
+  ) async {
+    final note = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _DismissSheet(report: report),
+    );
+    if (note == null) return;
+    await _runCallable(
+      'dismissReport',
+      {'reqId': reqId, 'reportId': report.id, 'note': note},
+      successMessage: 'Report dismissed.',
+    );
+  }
 }
 
 class _Header extends StatelessWidget {
@@ -237,15 +347,6 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'P-A-02 · MANAGE',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: _onFaint,
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
@@ -950,8 +1051,12 @@ class _DronePickerRow extends StatelessWidget {
 }
 
 class _InFlightCard extends StatelessWidget {
-  const _InFlightCard({required this.onOpenControl});
+  const _InFlightCard({
+    required this.onOpenControl,
+    required this.onRecall,
+  });
   final VoidCallback onOpenControl;
+  final VoidCallback? onRecall;
 
   @override
   Widget build(BuildContext context) {
@@ -972,6 +1077,23 @@ class _InFlightCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: const Text('Open in Control map →'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('recall-button'),
+              onPressed: onRecall,
+              icon: const Icon(Icons.keyboard_return, color: _coral),
+              label: const Text(
+                'Recall drone',
+                style: TextStyle(color: _coral),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: _coral),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
             ),
           ],
         ),
@@ -1007,6 +1129,437 @@ class _TerminalCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ReportsCard extends StatelessWidget {
+  const _ReportsCard({
+    required this.reports,
+    required this.busy,
+    required this.onResolve,
+    required this.onDismiss,
+  });
+
+  final List<Report> reports;
+  final bool busy;
+  final ValueChanged<Report> onResolve;
+  final ValueChanged<Report> onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return _shadowCard(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _SectionLabel('Reports'),
+            const SizedBox(height: 10),
+            for (var i = 0; i < reports.length; i++) ...[
+              if (i > 0)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(height: 1, color: _outlineSoft),
+                ),
+              _ReportTile(
+                report: reports[i],
+                busy: busy,
+                onResolve: () => onResolve(reports[i]),
+                onDismiss: () => onDismiss(reports[i]),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  const _ReportTile({
+    required this.report,
+    required this.busy,
+    required this.onResolve,
+    required this.onDismiss,
+  });
+
+  final Report report;
+  final bool busy;
+  final VoidCallback onResolve;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOpen = report.status == ReportStatus.open;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _ReportStatusChip(status: report.status),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _fmtDateTime(report.createdAt),
+                style: const TextStyle(fontSize: 12, color: _onFaint),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          report.message,
+          style: const TextStyle(fontSize: 14),
+        ),
+        if (report.resolution != null || report.resolutionNote != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _outlineSoft),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (report.resolution != null)
+                  Text(
+                    report.resolution!.label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _onMuted,
+                    ),
+                  ),
+                if (report.resolutionNote != null) ...[
+                  if (report.resolution != null) const SizedBox(height: 2),
+                  Text(
+                    report.resolutionNote!,
+                    style: const TextStyle(fontSize: 13, color: _onMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        if (isOpen) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  key: Key('resolve-${report.id}'),
+                  onPressed: busy ? null : onResolve,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('Resolve…'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  key: Key('dismiss-${report.id}'),
+                  onPressed: busy ? null : onDismiss,
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('Dismiss…'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ReportStatusChip extends StatelessWidget {
+  const _ReportStatusChip({required this.status});
+  final ReportStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    late Color bg;
+    late Color fg;
+    late String label;
+    switch (status) {
+      case ReportStatus.open:
+        bg = _coralSoft;
+        fg = _coral;
+        label = 'Open';
+      case ReportStatus.resolved:
+        bg = _primarySoft;
+        fg = _primary;
+        label = 'Resolved';
+      case ReportStatus.dismissed:
+        bg = const Color(0xFFEDEDED);
+        fg = _onMuted;
+        label = 'Dismissed';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
+      ),
+    );
+  }
+}
+
+class _ResolveSheetResult {
+  const _ResolveSheetResult({required this.outcome, required this.note});
+  final ReportResolution outcome;
+  final String note;
+}
+
+class _ResolveSheet extends StatefulWidget {
+  const _ResolveSheet({required this.report});
+  final Report report;
+
+  @override
+  State<_ResolveSheet> createState() => _ResolveSheetState();
+}
+
+class _ResolveSheetState extends State<_ResolveSheet> {
+  ReportResolution? _outcome;
+  final TextEditingController _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit = _outcome != null && _note.text.trim().isNotEmpty;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        20 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Resolve report',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Pick the outcome and write a note. The user will see this.',
+            style: TextStyle(fontSize: 13, color: _onMuted),
+          ),
+          const SizedBox(height: 16),
+          _OutcomeRadio(
+            value: ReportResolution.confirmWithRemedy,
+            groupValue: _outcome,
+            onChanged: (v) => setState(() => _outcome = v),
+            title: 'Confirm with remedy',
+            subtitle:
+                'Delivery is accepted — replacement / late / minor issue. Request → confirmed.',
+          ),
+          const SizedBox(height: 8),
+          _OutcomeRadio(
+            value: ReportResolution.failDelivery,
+            groupValue: _outcome,
+            onChanged: (v) => setState(() => _outcome = v),
+            title: 'Fail the delivery',
+            subtitle:
+                'Package never arrived / stolen / destroyed. Request → failed.',
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const Key('resolve-note'),
+            controller: _note,
+            maxLength: 500,
+            maxLines: 3,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Note to user (required)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: !canSubmit
+                ? null
+                : () => Navigator.of(context).pop(
+                      _ResolveSheetResult(
+                        outcome: _outcome!,
+                        note: _note.text.trim(),
+                      ),
+                    ),
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: const Text('Resolve report'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OutcomeRadio extends StatelessWidget {
+  const _OutcomeRadio({
+    required this.value,
+    required this.groupValue,
+    required this.onChanged,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final ReportResolution value;
+  final ReportResolution? groupValue;
+  final ValueChanged<ReportResolution?> onChanged;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = value == groupValue;
+    return InkWell(
+      onTap: () => onChanged(value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? _primarySoft : _surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? _primary : _outlineSoft),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Radio<ReportResolution>(
+              value: value,
+              // ignore: deprecated_member_use
+              groupValue: groupValue,
+              // ignore: deprecated_member_use
+              onChanged: onChanged,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: _onMuted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DismissSheet extends StatefulWidget {
+  const _DismissSheet({required this.report});
+  final Report report;
+
+  @override
+  State<_DismissSheet> createState() => _DismissSheetState();
+}
+
+class _DismissSheetState extends State<_DismissSheet> {
+  final TextEditingController _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit = _note.text.trim().isNotEmpty;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        20 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Dismiss report',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Write a note explaining why no action will be taken. The user will see this.',
+            style: TextStyle(fontSize: 13, color: _onMuted),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('dismiss-note'),
+            controller: _note,
+            maxLength: 500,
+            maxLines: 3,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Note to user (required)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: !canSubmit
+                ? null
+                : () => Navigator.of(context).pop(_note.text.trim()),
+            style: FilledButton.styleFrom(
+              backgroundColor: _coral,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: const Text('Dismiss report'),
+          ),
+        ],
       ),
     );
   }

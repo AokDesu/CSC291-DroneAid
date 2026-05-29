@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/auth/auth_providers.dart';
+
 class FlightDoc {
   const FlightDoc({
     required this.id,
@@ -67,15 +69,17 @@ class FlightDoc {
 /// Streams a single flight doc. Emits null when doc does not exist.
 /// Permission errors (wrong owner) surface as AsyncError in the provider.
 final flightStreamProvider =
-    StreamProvider.family<FlightDoc?, String>((ref, flightId) {
+    StreamProvider.autoDispose.family<FlightDoc?, String>((ref, flightId) {
+  ref.watch(authStateProvider);
   return FirebaseFirestore.instance
       .doc('flights/$flightId')
       .snapshots()
       .map((snap) => snap.exists ? FlightDoc.fromSnap(snap) : null);
 });
 
-/// Current weather state ("clear" | "rain" | "storm") from weather/current.
-final weatherStateProvider = StreamProvider<String>((ref) {
+/// Current weather state ("clear" | "wind" | "storm") from weather/current.
+final weatherStateProvider = StreamProvider.autoDispose<String>((ref) {
+  ref.watch(authStateProvider);
   return FirebaseFirestore.instance
       .doc('weather/current')
       .snapshots()

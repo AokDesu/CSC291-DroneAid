@@ -86,7 +86,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('weather-storm-warning')), findsOneWidget);
-      expect(find.textContaining('Storm can abort'), findsOneWidget);
+      expect(find.textContaining('Storm immediately recalls'), findsOneWidget);
 
       final btn = tester.widget<FilledButton>(
         find.byKey(const Key('weather-save')),

@@ -28,6 +28,7 @@ dependencies:
   # Map
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
+  geolocator: ^13.0.1
 
   # Utilities
   intl: ^0.20.2

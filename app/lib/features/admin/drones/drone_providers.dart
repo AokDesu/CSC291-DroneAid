@@ -10,10 +10,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_providers.dart';
 import '../../user/tracking/flight_provider.dart' show FlightDoc;
 import 'drone.dart';
 
-final adminDronesStreamProvider = StreamProvider<List<Drone>>((ref) {
+final adminDronesStreamProvider =
+    StreamProvider.autoDispose<List<Drone>>((ref) {
+  ref.watch(authStateProvider);
   final col = FirebaseFirestore.instance.collection('drones');
   return col.orderBy('name').snapshots().map(
         (snap) => snap.docs.map(Drone.fromSnap).toList(growable: false),
@@ -21,7 +24,8 @@ final adminDronesStreamProvider = StreamProvider<List<Drone>>((ref) {
 });
 
 final droneDocStreamProvider =
-    StreamProvider.family<Drone?, String>((ref, droneId) {
+    StreamProvider.autoDispose.family<Drone?, String>((ref, droneId) {
+  ref.watch(authStateProvider);
   final ref0 = FirebaseFirestore.instance.doc('drones/$droneId');
   return ref0.snapshots().map((snap) {
     if (!snap.exists) return null;
@@ -30,7 +34,8 @@ final droneDocStreamProvider =
 });
 
 final flightsByDroneStreamProvider =
-    StreamProvider.family<List<FlightDoc>, String>((ref, droneId) {
+    StreamProvider.autoDispose.family<List<FlightDoc>, String>((ref, droneId) {
+  ref.watch(authStateProvider);
   return FirebaseFirestore.instance
       .collection('flights')
       .where('droneId', isEqualTo: droneId)

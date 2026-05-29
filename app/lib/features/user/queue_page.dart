@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/widgets/error_retry.dart';
+import '../../core/widgets/loading_placeholder.dart';
 import '../../core/widgets/status_chip.dart';
 import 'request/app_request.dart';
 import 'request/queue_provider.dart';
@@ -22,10 +24,12 @@ class QueuePage extends ConsumerWidget {
     final namesAsync = ref.watch(catalogNamesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your queue')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        loading: () => const LoadingPlaceholder(label: 'Loading your queue…'),
+        error: (e, _) => ErrorRetry(
+          message: 'Failed to load: $e',
+          onRetry: () => ref.invalidate(myRequestsProvider),
+        ),
         data: (all) {
           final pending = all.where((r) => r.bucket == QueueBucket.pending).toList();
           final active = all.where((r) => r.bucket == QueueBucket.active).toList();
@@ -182,21 +186,27 @@ class _QueueRow extends ConsumerWidget {
               Text(summary, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 4),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    '${request.totalWeightKg.toStringAsFixed(1)} kg',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(time, style: theme.textTheme.bodySmall),
-                  if (request.currentFlightId != null) ...[
-                    const SizedBox(width: 12),
-                    Text(
-                      'Flight ${request.currentFlightId}',
-                      style: theme.textTheme.bodySmall,
+                  Expanded(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          '${request.totalWeightKg.toStringAsFixed(1)} kg',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        Text(time, style: theme.textTheme.bodySmall),
+                        if (request.currentFlightId != null)
+                          Text(
+                            'Flight ${request.currentFlightId}',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
-                  ],
-                  const Spacer(),
+                  ),
                   if (isPending)
                     TextButton(
                       key: Key('cancel-${request.id}'),

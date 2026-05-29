@@ -17,6 +17,7 @@ setGlobalOptions({
 export { submitRequest } from "./callable/submitRequest";
 export { cancelRequest } from "./callable/cancelRequest";
 export { confirmDelivery } from "./callable/confirmDelivery";
+export { reportDeliveryIssue } from "./callable/reportDeliveryIssue";
 export { updateProfile } from "./callable/updateProfile";
 
 // ── Callable functions (admin) ──────────────────────────────────────────
@@ -26,11 +27,22 @@ export { assignDrone } from "./callable/assignDrone";
 export { setWeather } from "./callable/setWeather";
 export { restockItem } from "./callable/restockItem";
 export { toggleDroneMaintenance } from "./callable/toggleDroneMaintenance";
+export { createDrone } from "./callable/createDrone";
+export { editDrone } from "./callable/editDrone";
+export { retireDrone } from "./callable/retireDrone";
+export { collectDrone } from "./callable/collectDrone";
 export { createCatalogItem } from "./callable/createCatalogItem";
+export { editCatalogItem } from "./callable/editCatalogItem";
 export { toggleCatalogActive } from "./callable/toggleCatalogActive";
+export { resolveReport } from "./callable/resolveReport";
+export { dismissReport } from "./callable/dismissReport";
+export { recallFlight } from "./callable/recallFlight";
 
 // ── Scheduled ───────────────────────────────────────────────────────────
 export { tickFlights } from "./scheduled/tickFlights";
+
+// ── Dev-only (emulator) ─────────────────────────────────────────────────
+export { devTickFlights } from "./callable/devTickFlights";
 
 // ── Triggers ────────────────────────────────────────────────────────────
 export { onUserCreated } from "./triggers/onUserCreated";

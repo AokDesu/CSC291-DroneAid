@@ -28,6 +28,13 @@ export const assignDrone = onCall(async (req) => {
   const weatherState = ((weatherSnap.data()?.state as WeatherState) ?? "clear");
   const weatherMod = speedMod(weatherState);
 
+  if (weatherState === "storm") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Cannot dispatch a drone while weather is storm.",
+    );
+  }
+
   const { flightId, userId } = await db.runTransaction(async (tx) => {
     const reqRef = db.doc(`requests/${reqId}`);
     const droneRef = db.doc(`drones/${droneId}`);
@@ -47,6 +54,12 @@ export const assignDrone = onCall(async (req) => {
     }
     if ((d.maxPayloadKg ?? 0) < (r.totalWeightKg ?? 0)) {
       throw new HttpsError("failed-precondition", "Drone payload too small.");
+    }
+    if (((d.batteryPct as number | undefined) ?? 0) < 30) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Drone battery ${d.batteryPct ?? 0}% is below the 30% dispatch threshold.`,
+      );
     }
 
     const takeoffAt = Timestamp.now();

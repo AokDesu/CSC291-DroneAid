@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/widgets/error_retry.dart';
 import '../../core/widgets/status_chip.dart';
 import 'requests/admin_request.dart';
 import 'requests/admin_requests_provider.dart';
 
 /// Pure helper — "Just now", "7 min ago", "Yesterday", "Mar 14". Mirrors
 /// the user-side helper, kept local so this page stays decoupled from the
-/// user-side queue PR until that lands.
-@visibleForTesting
+/// user-side queue PR until that lands. Also reused by reports_page.
 String relativeAge(DateTime? when, {DateTime? now}) {
   if (when == null) return '—';
   final ref = now ?? DateTime.now();
@@ -62,7 +62,6 @@ class _AdminRequestsPageState extends ConsumerState<AdminRequestsPage> {
         const <String, String>{};
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Requests')),
       body: Column(
         children: [
           Padding(
@@ -110,8 +109,10 @@ class _AdminRequestsPageState extends ConsumerState<AdminRequestsPage> {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Failed to load requests: $e')),
+              error: (e, _) => ErrorRetry(
+                message: 'Failed to load requests: $e',
+                onRetry: () => ref.invalidate(adminAllRequestsProvider),
+              ),
               data: (all) {
                 final filtered = filterRequests(
                   all,
@@ -199,31 +200,29 @@ class _AdminRequestRow extends StatelessWidget {
               const SizedBox(height: 6),
               Text(summary, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 4),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text('#${request.id}', style: theme.textTheme.bodySmall),
-                  const SizedBox(width: 12),
                   Text(
                     '${request.totalWeightKg.toStringAsFixed(1)} kg',
                     style: theme.textTheme.bodySmall,
                   ),
-                  const SizedBox(width: 12),
                   Text(age, style: theme.textTheme.bodySmall),
-                  if (request.currentFlightId != null) ...[
-                    const SizedBox(width: 12),
+                  if (request.currentFlightId != null)
                     Text(
                       'Flight ${request.currentFlightId}',
                       style: theme.textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                  if (request.priority == 'urgent') ...[
-                    const SizedBox(width: 12),
+                  if (request.priority == 'urgent')
                     Icon(
                       Icons.priority_high,
                       size: 16,
                       color: theme.colorScheme.error,
                     ),
-                  ],
                 ],
               ),
             ],

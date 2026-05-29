@@ -2,13 +2,14 @@
 // Layout + behaviour mirror docs/10-prototype-design.md §P-U-01.
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/dev_mode.dart';
 import '../../utils/thai_id_validator.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -154,7 +155,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: const Text('New here?  Create an account →'),
                 ),
                 const SizedBox(height: 32),
-                if (kDebugMode) const _DemoAccountsCard(),
+                if (kShowDevSurfaces) ...[
+                  const _DemoAccountsCard(),
+                  const SizedBox(height: 12),
+                  const _CrashTestCard(),
+                ],
               ],
             ),
             ],
@@ -193,6 +198,207 @@ class _DemoAccountsCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Crashlytics test surface.
+///
+/// Crashlytics collection is disabled in debug unless you run with:
+///   flutter run --dart-define=FORCE_CRASHLYTICS=true
+/// (or use a release build). Without that flag, the buttons below
+/// still fire but no upload happens — the crash is swallowed locally.
+/// The card shows the live `isCrashlyticsCollectionEnabled` state so
+/// the disabled-no-uploads case is obvious before you trigger anything.
+///
+/// Verification flow:
+///   1. flutter run --dart-define=FORCE_CRASHLYTICS=true
+///   2. Confirm card says "Collection: enabled" in green.
+///   3. Tap "Non-fatal" → uploads immediately, appears under non-fatals
+///      tab in Firebase Console → Crashlytics within a few minutes.
+///   4. Tap "Force crash" — app dies. Relaunch app. Crashlytics flushes
+///      the pending fatal on next start. Fatals tab in console.
+///   5. If a fatal seems stuck, tap "Send unsent" to flush manually.
+class _CrashTestCard extends StatefulWidget {
+  const _CrashTestCard();
+
+  @override
+  State<_CrashTestCard> createState() => _CrashTestCardState();
+}
+
+class _CrashTestCardState extends State<_CrashTestCard> {
+  bool? _collectionEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCollectionState();
+  }
+
+  Future<void> _refreshCollectionState() async {
+    bool? enabled;
+    try {
+      enabled = FirebaseCrashlytics.instance.isCrashlyticsCollectionEnabled;
+    } catch (_) {
+      // FirebaseCrashlytics not initialised (e.g. widget test without
+      // Firebase.initializeApp). Leave the state unknown; the card will
+      // render a placeholder.
+      enabled = null;
+    }
+    if (!mounted) return;
+    setState(() => _collectionEnabled = enabled);
+  }
+
+  void _forceFatalCrash() {
+    FirebaseCrashlytics.instance.crash();
+  }
+
+  void _recordNonFatal() {
+    FirebaseCrashlytics.instance.recordError(
+      Exception('Test non-fatal error from DroneAid login screen'),
+      StackTrace.current,
+      reason: 'manual crash-test card',
+      fatal: false,
+    );
+  }
+
+  Future<void> _sendUnsent() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await FirebaseCrashlytics.instance.sendUnsentReports();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Asked Crashlytics to flush.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Flush failed: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabled = _collectionEnabled;
+    final statusLine = enabled == null
+        ? const _StatusLine(
+            label: 'Collection: …',
+            color: Colors.grey,
+            icon: Icons.hourglass_empty,
+          )
+        : enabled
+            ? _StatusLine(
+                label: 'Collection: enabled',
+                color: Colors.green.shade700,
+                icon: Icons.check_circle_outline,
+              )
+            : _StatusLine(
+                label: 'Collection: disabled',
+                color: theme.colorScheme.error,
+                icon: Icons.error_outline,
+              );
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Crashlytics test',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            statusLine,
+            const SizedBox(height: 6),
+            if (enabled == false)
+              Text(
+                'Uploads disabled in debug. Restart with '
+                '--dart-define=FORCE_CRASHLYTICS=true (or run --release).',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.error,
+                ),
+              )
+            else
+              const Text(
+                'Fatal crash uploads on the NEXT app launch. Non-fatal '
+                'uploads immediately. Console can take 2–5 min.',
+                style: TextStyle(fontSize: 12),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('crashlytics-non-fatal'),
+                    onPressed: () {
+                      _recordNonFatal();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Non-fatal recorded. Check Crashlytics.'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.warning_amber_outlined),
+                    label: const Text('Non-fatal'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('crashlytics-force-crash'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    onPressed: _forceFatalCrash,
+                    icon: const Icon(Icons.dangerous_outlined),
+                    label: const Text('Force crash'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
+              key: const Key('crashlytics-send-unsent'),
+              onPressed: _sendUnsent,
+              icon: const Icon(Icons.cloud_upload_outlined),
+              label: const Text('Send unsent reports'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({
+    required this.label,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

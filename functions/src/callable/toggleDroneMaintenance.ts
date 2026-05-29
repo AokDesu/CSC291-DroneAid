@@ -9,7 +9,7 @@ import { requireAdmin } from "../lib/roles";
 
 const InputSchema = z.object({
   droneId: z.string().min(1),
-  mode: z.enum(["idle", "maintenance", "offline"]),
+  mode: z.enum(["idle", "maintenance", "offline", "retired"]),
 });
 
 export const toggleDroneMaintenance = onCall(async (req) => {

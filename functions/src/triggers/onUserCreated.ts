@@ -32,6 +32,7 @@ export const onUserCreated = functions
       phone: existing.phone ?? user.phoneNumber ?? null,
       role: existing.role ?? "user",
       deliveryAddress: existing.deliveryAddress ?? null,
+      hubLocation: existing.hubLocation ?? null,
       locked: existing.locked ?? false,
       fcmTokens: existing.fcmTokens ?? [],
       createdAt: existing.createdAt ?? FieldValue.serverTimestamp(),

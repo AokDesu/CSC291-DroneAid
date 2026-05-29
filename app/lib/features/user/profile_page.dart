@@ -5,8 +5,15 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:latlong2/latlong.dart';
+
 import '../../core/auth/auth_providers.dart';
 import '../../core/auth/user_profile.dart';
+import '../../core/firebase_errors.dart';
+import '../../core/widgets/drone_map.dart';
+import '../../core/widgets/loading_placeholder.dart';
+import 'request/cart.dart' show DeliveryPin;
+import 'request/pin_picker.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -15,9 +22,8 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(userProfileProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile & Settings')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingPlaceholder(label: 'Loading your profile…'),
         error: (e, _) => Center(child: Text('Failed to load: $e')),
         data: (profile) {
           if (profile == null) {
@@ -40,6 +46,9 @@ Map<String, dynamic> buildProfilePatch({
   required double? lat,
   required double? lng,
   required String label,
+  double? hubLat,
+  double? hubLng,
+  String hubLabel = '',
   required String theme,
   required bool notificationsEnabled,
 }) {
@@ -71,6 +80,25 @@ Map<String, dynamic> buildProfilePatch({
     }
   }
 
+  if (hubLat != null && hubLng != null) {
+    final hub = initial.hubLocation;
+    final origLat = (hub?['lat'] as num?)?.toDouble();
+    final origLng = (hub?['lng'] as num?)?.toDouble();
+    final origLabel = (hub?['label'] as String?) ?? '';
+    final trimmedLabel = hubLabel.trim();
+    final changed = hub == null
+        || origLat != hubLat
+        || origLng != hubLng
+        || origLabel != trimmedLabel;
+    if (changed) {
+      patch['hubLocation'] = {
+        'lat': hubLat,
+        'lng': hubLng,
+        if (trimmedLabel.isNotEmpty) 'label': trimmedLabel,
+      };
+    }
+  }
+
   final prefsChanged =
       theme != initial.theme || notificationsEnabled != initial.notificationsEnabled;
   if (prefsChanged) {
@@ -95,11 +123,10 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _phone;
-  late final TextEditingController _lat;
-  late final TextEditingController _lng;
-  late final TextEditingController _label;
   late String _theme;
   late bool _notificationsEnabled;
+  DeliveryPin? _deliveryPin;
+  DeliveryPin? _hubPin;
   bool _saving = false;
   String? _serverError;
   String? _serverSuccess;
@@ -110,22 +137,47 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     final p = widget.initial;
     _name = TextEditingController(text: p.name ?? '');
     _phone = TextEditingController(text: p.phone ?? '');
-    final addr = p.deliveryAddress;
-    _lat = TextEditingController(text: (addr?['lat'] as num?)?.toString() ?? '');
-    _lng = TextEditingController(text: (addr?['lng'] as num?)?.toString() ?? '');
-    _label = TextEditingController(text: (addr?['label'] as String?) ?? '');
+    _deliveryPin = _readPin(p.deliveryAddress);
+    _hubPin = _readPin(p.hubLocation);
     _theme = p.theme;
     _notificationsEnabled = p.notificationsEnabled;
+  }
+
+  static DeliveryPin? _readPin(Map<String, dynamic>? raw) {
+    if (raw == null) return null;
+    final lat = (raw['lat'] as num?)?.toDouble();
+    final lng = (raw['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+    return DeliveryPin(lat: lat, lng: lng, label: raw['label'] as String?);
   }
 
   @override
   void dispose() {
     _name.dispose();
     _phone.dispose();
-    _lat.dispose();
-    _lng.dispose();
-    _label.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDelivery() async {
+    final picked = await showPinPicker(
+      context,
+      initial: _deliveryPin,
+      title: 'Drop a delivery pin',
+      labelFieldLabel: 'Label (optional, e.g. "Home")',
+    );
+    if (picked == null) return;
+    setState(() => _deliveryPin = picked);
+  }
+
+  Future<void> _pickHub() async {
+    final picked = await showPinPicker(
+      context,
+      initial: _hubPin,
+      title: 'Pick your hub location',
+      labelFieldLabel: 'Hub label (optional, e.g. "Warehouse A")',
+    );
+    if (picked == null) return;
+    setState(() => _hubPin = picked);
   }
 
   Future<void> _save() async {
@@ -135,13 +187,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       _serverSuccess = null;
     });
 
+    final isAdmin = widget.initial.isAdmin;
     final patch = buildProfilePatch(
       initial: widget.initial,
       name: _name.text,
-      phone: _phone.text,
-      lat: double.tryParse(_lat.text.trim()),
-      lng: double.tryParse(_lng.text.trim()),
-      label: _label.text,
+      phone: isAdmin ? (widget.initial.phone ?? '') : _phone.text,
+      lat: isAdmin ? null : _deliveryPin?.lat,
+      lng: isAdmin ? null : _deliveryPin?.lng,
+      label: isAdmin ? '' : (_deliveryPin?.label ?? ''),
+      hubLat: _hubPin?.lat,
+      hubLng: _hubPin?.lng,
+      hubLabel: _hubPin?.label ?? '',
       theme: _theme,
       notificationsEnabled: _notificationsEnabled,
     );
@@ -159,7 +215,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       ref.invalidate(userProfileProvider);
       if (mounted) setState(() => _serverSuccess = 'Saved.');
     } catch (e) {
-      if (mounted) setState(() => _serverError = 'Could not save: $e');
+      if (mounted) setState(() => _serverError = 'Could not save: ${describeFunctionsError(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -185,6 +241,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     );
     if (confirm != true) return;
     await ref.read(authRepositoryProvider).signOut();
+    ref.invalidate(userProfileProvider);
     // Router redirect carries us back to /login.
   }
 
@@ -195,115 +252,90 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     return null;
   }
 
-  String? _validateCoord(String? v, {required bool isLat}) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return null;
-    final n = double.tryParse(s);
-    if (n == null) return 'Must be a number';
-    if (isLat && (n < -90 || n > 90)) return '-90..90';
-    if (!isLat && (n < -180 || n > 180)) return '-180..180';
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isAdmin = widget.initial.isAdmin;
     return Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Text('Account', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _name,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Phone',
-              border: OutlineInputBorder(),
-            ),
-            validator: _validatePhone,
-          ),
-          const SizedBox(height: 24),
-          Text('Delivery address', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Pin picker coming with #9 — for now, enter coordinates manually.',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          Row(
+          _ProfileHeader(profile: widget.initial),
+          const SizedBox(height: 16),
+          _SectionCard(
+            title: 'Account',
             children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _lat,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Latitude',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => _validateCoord(v, isLat: true),
+              TextFormField(
+                controller: _name,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _lng,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
+              if (!isAdmin) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'Longitude',
+                    labelText: 'Phone',
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => _validateCoord(v, isLat: false),
+                  validator: _validatePhone,
                 ),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _label,
-            decoration: const InputDecoration(
-              labelText: 'Label (e.g. "Home")',
-              border: OutlineInputBorder(),
+          if (isAdmin)
+            _PinCard(
+              title: 'Hub',
+              subtitle:
+                  'Your distribution hub. Drop a pin where this account dispatches from.',
+              pin: _hubPin,
+              onPick: _pickHub,
+              emptyLabel: 'No hub set yet',
+              setLabel: 'Set hub',
+              changeLabel: 'Change hub',
+            )
+          else
+            _PinCard(
+              title: 'Delivery address',
+              subtitle:
+                  'Where the drone drops your packages. Tap to drop a pin or use your current location.',
+              pin: _deliveryPin,
+              onPick: _pickDelivery,
+              emptyLabel: 'No delivery pin yet',
+              setLabel: 'Set pin',
+              changeLabel: 'Change pin',
             ),
-          ),
-          const SizedBox(height: 24),
-          Text('Preferences', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _theme,
-            decoration: const InputDecoration(
-              labelText: 'Theme',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'system', child: Text('System')),
-              DropdownMenuItem(value: 'light', child: Text('Light')),
-              DropdownMenuItem(value: 'dark', child: Text('Dark')),
+          const SizedBox(height: 12),
+          _SectionCard(
+            title: 'Preferences',
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _theme,
+                decoration: const InputDecoration(
+                  labelText: 'Theme',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'system', child: Text('System')),
+                  DropdownMenuItem(value: 'light', child: Text('Light')),
+                  DropdownMenuItem(value: 'dark', child: Text('Dark')),
+                ],
+                onChanged: (v) => setState(() => _theme = v ?? 'system'),
+              ),
+              const SizedBox(height: 4),
+              SwitchListTile(
+                value: _notificationsEnabled,
+                title: const Text('Notifications'),
+                onChanged: (v) => setState(() => _notificationsEnabled = v),
+                contentPadding: EdgeInsets.zero,
+              ),
             ],
-            onChanged: (v) => setState(() => _theme = v ?? 'system'),
-          ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            value: _notificationsEnabled,
-            title: const Text('Notifications'),
-            onChanged: (v) => setState(() => _notificationsEnabled = v),
-            contentPadding: EdgeInsets.zero,
           ),
           if (_serverError != null) ...[
             const SizedBox(height: 12),
@@ -336,6 +368,249 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             child: const Text('Log out'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile});
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = (profile.name?.trim().isNotEmpty ?? false)
+        ? profile.name!.trim()
+        : 'Unnamed user';
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _Avatar(name: name),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: theme.textTheme.titleLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _RolePill(role: profile.role),
+                      if (profile.nationalId != null)
+                        Text(
+                          'ID ${_maskNationalId(profile.nationalId!)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+    return CircleAvatar(
+      radius: 28,
+      backgroundColor: theme.colorScheme.primaryContainer,
+      child: Text(
+        initials.isEmpty ? '?' : initials,
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: theme.colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _RolePill extends StatelessWidget {
+  const _RolePill({required this.role});
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isAdmin = role == 'admin';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isAdmin
+            ? theme.colorScheme.primary
+            : theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        isAdmin ? 'Admin' : 'User',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: isAdmin
+              ? theme.colorScheme.onPrimary
+              : theme.colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// 13-digit Thai national IDs: show first 4 + last 3 digits, mask the rest.
+/// "1234567890123" → "1234-XXXXXX-123".
+String _maskNationalId(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 7) return raw;
+  final head = digits.substring(0, 4);
+  final tail = digits.substring(digits.length - 3);
+  final hiddenCount = digits.length - 7;
+  return '$head-${'X' * hiddenCount}-$tail';
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.children,
+  });
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PinCard extends StatelessWidget {
+  const _PinCard({
+    required this.title,
+    required this.subtitle,
+    required this.pin,
+    required this.onPick,
+    required this.emptyLabel,
+    required this.setLabel,
+    required this.changeLabel,
+  });
+
+  final String title;
+  final String subtitle;
+  final DeliveryPin? pin;
+  final VoidCallback onPick;
+  final String emptyLabel;
+  final String setLabel;
+  final String changeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(subtitle, style: theme.textTheme.bodySmall),
+            const SizedBox(height: 12),
+            if (pin == null)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  emptyLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 180,
+                  child: IgnorePointer(
+                    child: DroneMap(
+                      center: LatLng(pin!.lat, pin!.lng),
+                      zoom: 14,
+                      markers: [
+                        DroneMapMarker(
+                          id: 'pin',
+                          position: LatLng(pin!.lat, pin!.lng),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${pin!.lat.toStringAsFixed(5)}, ${pin!.lng.toStringAsFixed(5)}'
+                '${pin!.label != null && pin!.label!.isNotEmpty ? '  ·  ${pin!.label}' : ''}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: Key('set-pin-${title.toLowerCase().replaceAll(' ', '-')}'),
+              onPressed: onPick,
+              icon: const Icon(Icons.place_outlined),
+              label: Text(pin == null ? setLabel : changeLabel),
+            ),
+          ],
+        ),
       ),
     );
   }

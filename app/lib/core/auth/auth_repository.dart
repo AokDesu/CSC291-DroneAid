@@ -30,7 +30,10 @@ class AuthRepository {
 
   /// Creates the Auth user (which auto-signs-in) and then patches the
   /// freshly-provisioned `users/{uid}` doc with the optional profile fields
-  /// via the `updateProfile` callable.
+  /// via the `updateProfile` callable. `updateProfile` is guarded by
+  /// `requireAuthOnly` so it tolerates the doc not existing yet — the
+  /// onUserCreated trigger will preserve our `{name, phone}` writes via
+  /// its `existing.* ?? ...` fallbacks.
   Future<UserCredential> registerWithNationalId({
     required String nationalId,
     required String password,
@@ -41,14 +44,17 @@ class AuthRepository {
       email: ThaiIdValidator.toSyntheticEmail(nationalId),
       password: password,
     );
-    // Best-effort profile fill. If it fails the user can still log in and
-    // edit later from P-U-09.
+    final trimmedName = name.trim();
+    final trimmedPhone = phone.trim();
     try {
       await _functions
           .httpsCallable('updateProfile')
-          .call<Map<String, dynamic>>({'name': name, 'phone': phone});
+          .call<Map<String, dynamic>>({
+        'name': trimmedName,
+        if (trimmedPhone.isNotEmpty) 'phone': trimmedPhone,
+      });
     } catch (_) {
-      // Swallow — UI surfaces "registered, finish setup later" on its own.
+      // Swallow — user can still log in and edit profile later from P-U-09.
     }
     return cred;
   }

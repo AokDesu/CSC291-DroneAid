@@ -15,7 +15,8 @@ import 'app_request.dart';
 /// All requests owned by the signed-in user (any status), newest first.
 /// Emits an empty list when the user is signed out so the page can render
 /// its empty state without throwing.
-final myRequestsProvider = StreamProvider<List<AppRequest>>((ref) {
+final myRequestsProvider =
+    StreamProvider.autoDispose<List<AppRequest>>((ref) {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return Stream.value(const []);
   final col = FirebaseFirestore.instance.collection('requests');
@@ -31,7 +32,9 @@ final myRequestsProvider = StreamProvider<List<AppRequest>>((ref) {
 /// `catalogId -> name` lookup for the queue rows. Reading `catalog/` is
 /// allowed for any signed-in user (firestore.rules). Falls back to the raw
 /// catalogId when a name is missing.
-final catalogNamesProvider = StreamProvider<Map<String, String>>((ref) {
+final catalogNamesProvider =
+    StreamProvider.autoDispose<Map<String, String>>((ref) {
+  ref.watch(authStateProvider);
   final col = FirebaseFirestore.instance.collection('catalog');
   return col.snapshots().map(
         (snap) => <String, String>{

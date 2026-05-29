@@ -5,6 +5,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_providers.dart';
+
 class CatalogEntry {
   const CatalogEntry({
     required this.id,
@@ -41,7 +43,9 @@ class CatalogEntry {
 
 /// Streams only `active == true` items, ordered by name. Composite index is
 /// not required for an equality-only `where` plus one `orderBy`.
-final activeCatalogProvider = StreamProvider<List<CatalogEntry>>((ref) {
+final activeCatalogProvider =
+    StreamProvider.autoDispose<List<CatalogEntry>>((ref) {
+  ref.watch(authStateProvider);
   final col = FirebaseFirestore.instance.collection('catalog');
   return col
       .where('active', isEqualTo: true)

@@ -14,17 +14,39 @@ class StatusChip extends StatelessWidget {
 
   static Color colorFor(String status) {
     switch (status) {
+      // ── Active progression ───────────────────────────────────────
       case 'pending':
         return Colors.blue;
       case 'approved':
-        return Colors.green;
-      case 'rejected':
-      case 'aborted':
-        return Colors.red;
+        return Colors.teal;
+      case 'assigned':
+        return Colors.cyan;
       case 'in_flight':
+      case 'enroute':
+      case 'delivering':
+      case 'returning':
         return Colors.orange;
+      case 'delivered':
+        return Colors.amber.shade700;
+
+      // ── Success terminal ─────────────────────────────────────────
+      case 'confirmed':
+        return Colors.green.shade700;
       case 'completed':
+        return Colors.green;
+
+      // ── Failure terminal ─────────────────────────────────────────
+      case 'rejected':
+        return Colors.red;
+      case 'aborted':
+        return Colors.red.shade700;
+      case 'failed':
+        return Colors.brown;
+
+      // ── Neutral terminal ─────────────────────────────────────────
       case 'cancelled':
+        return Colors.blueGrey;
+
       default:
         return Colors.grey;
     }

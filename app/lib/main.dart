@@ -69,6 +69,12 @@ class DroneAidApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     ref.watch(fcmRegistrationProvider);
+    // Tag every Crashlytics report with the signed-in uid so reports
+    // are filterable per user in the Console.
+    ref.listen(authStateProvider, (_, next) {
+      final uid = next.valueOrNull?.uid ?? '';
+      FirebaseCrashlytics.instance.setUserIdentifier(uid);
+    });
     return MaterialApp.router(
       title: 'DroneAid',
       debugShowCheckedModeBanner: false,

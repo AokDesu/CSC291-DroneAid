@@ -22,3 +22,17 @@ export async function requireAdmin(req: CallableRequest): Promise<{ uid: string;
   }
   return ctx;
 }
+
+/// Auth-only gate — does NOT require `users/{uid}` to exist. Used by
+/// `updateProfile` so the register flow can patch user-typed fields
+/// before the `onUserCreated` Auth trigger has finished provisioning
+/// the doc. Safe because the Zod schema in `updateProfile` only accepts
+/// user-editable fields (name / phone / deliveryAddress / hubLocation /
+/// prefs / fcmToken) — never role / locked / nationalId.
+export async function requireAuthOnly(
+  req: CallableRequest,
+): Promise<{ uid: string }> {
+  const uid = req.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  return { uid };
+}

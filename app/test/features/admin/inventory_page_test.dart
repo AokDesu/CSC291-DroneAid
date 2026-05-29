@@ -134,7 +134,7 @@ void main() {
 
     testWidgets('shows empty state when catalog has zero items', (tester) async {
       await _pump(tester, items: const []);
-      expect(find.text('No catalog items yet.'), findsOneWidget);
+      expect(find.text('No catalog items yet'), findsOneWidget);
     });
 
     testWidgets('restock button opens dialog with quantity field + presets',

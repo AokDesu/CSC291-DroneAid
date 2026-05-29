@@ -5,9 +5,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_providers.dart';
 import 'catalog_item.dart';
 
-final adminCatalogStreamProvider = StreamProvider<List<CatalogItem>>((ref) {
+final adminCatalogStreamProvider =
+    StreamProvider.autoDispose<List<CatalogItem>>((ref) {
+  ref.watch(authStateProvider);
   final col = FirebaseFirestore.instance.collection('catalog');
   return col.orderBy('name').snapshots().map(
         (snap) => snap.docs.map(CatalogItem.fromSnap).toList(growable: false),

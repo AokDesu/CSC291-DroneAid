@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/firebase_errors.dart';
+import '../reports/report_dialog.dart';
+
 const _region = 'asia-southeast1';
 
 final _reqProvider =
@@ -63,7 +66,7 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Could not confirm: ${describeFunctionsError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -71,37 +74,29 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
   }
 
   Future<void> _reportProblem() async {
-    final controller = TextEditingController();
-    final sent = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Report a problem'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'Describe the issue…',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Send'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (sent == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coordinator notified.')),
+    final message = await showReportDialog(context);
+    if (message == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _loading = true);
+    try {
+      await FirebaseFunctions.instanceFor(region: _region)
+          .httpsCallable('reportDeliveryIssue')
+          .call<Map<String, dynamic>>({
+        'reqId': widget.reqId,
+        'message': message,
+      });
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Report sent. Coordinator notified.')),
       );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not send report: ${describeFunctionsError(e)}')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -112,7 +107,7 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
       appBar: AppBar(title: const Text('Confirm receipt')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text('Failed to load request: ${describeFunctionsError(e)}')),
         data: (data) {
           if (data == null) {
             return const Center(child: Text('Request not found.'));
@@ -169,3 +164,4 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
     );
   }
 }
+

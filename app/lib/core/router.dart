@@ -1,4 +1,11 @@
 // go_router with role-aware redirect guard. See docs/09-page-flow-design.md §3.
+//
+// Layout:
+//   - Public routes (/login, /register) live outside any shell.
+//   - User pages live inside [UserShell] (AppBar + bottom NavigationBar).
+//   - Admin pages live inside [AdminShell] (AppBar + top TabBar + More sheet).
+//   - Detail / full-screen pages (tracking, confirm, request detail, drone
+//     detail) live outside both shells so they render edge-to-edge.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,19 +15,22 @@ import '../features/admin/control_page.dart';
 import '../features/admin/drones/drone_detail_page.dart';
 import '../features/admin/drones_page.dart';
 import '../features/admin/inventory_page.dart';
+import '../features/admin/reports_page.dart';
 import '../features/admin/requests/admin_request_detail_page.dart';
 import '../features/admin/requests_page.dart';
 import '../features/admin/weather_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
+import '../features/user/confirm_page.dart';
 import '../features/user/history_page.dart';
 import '../features/user/home_page.dart';
 import '../features/user/notifications_page.dart';
 import '../features/user/profile_page.dart';
-import '../features/user/confirm_page.dart';
 import '../features/user/queue_page.dart';
 import '../features/user/tracking_page.dart';
 import 'auth/auth_providers.dart';
+import 'shells/admin_shell.dart';
+import 'shells/user_shell.dart';
 
 const _publicRoutes = {'/login', '/register'};
 
@@ -57,9 +67,34 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login',    builder: (_, __) => const LoginPage()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
 
-      // User
-      GoRoute(path: '/user/home',           builder: (_, __) => const UserHomePage()),
-      GoRoute(path: '/user/queue',          builder: (_, __) => const QueuePage()),
+      // ── User shell (bottom nav + AppBar) ────────────────────────────────
+      ShellRoute(
+        builder: (_, __, child) => UserShell(child: child),
+        routes: [
+          GoRoute(path: '/user/home',          builder: (_, __) => const UserHomePage()),
+          GoRoute(path: '/user/queue',         builder: (_, __) => const QueuePage()),
+          GoRoute(path: '/user/history',       builder: (_, __) => const HistoryPage()),
+          GoRoute(path: '/user/notifications', builder: (_, __) => const NotificationsPage()),
+          GoRoute(path: '/user/profile',       builder: (_, __) => const ProfilePage()),
+        ],
+      ),
+
+      // ── Admin shell (top tabs + AppBar + More sheet) ────────────────────
+      ShellRoute(
+        builder: (_, __, child) => AdminShell(child: child),
+        routes: [
+          GoRoute(path: '/admin/requests',  builder: (_, __) => const AdminRequestsPage()),
+          GoRoute(path: '/admin/reports',   builder: (_, __) => const AdminReportsPage()),
+          GoRoute(path: '/admin/drones',    builder: (_, __) => const AdminDronesPage()),
+          GoRoute(path: '/admin/control',   builder: (_, __) => const ControlPage()),
+          GoRoute(path: '/admin/weather',   builder: (_, __) => const AdminWeatherPage()),
+          GoRoute(path: '/admin/inventory',     builder: (_, __) => const AdminInventoryPage()),
+          GoRoute(path: '/admin/notifications', builder: (_, __) => const NotificationsPage()),
+          GoRoute(path: '/admin/profile',       builder: (_, __) => const ProfilePage()),
+        ],
+      ),
+
+      // ── Full-screen / detail routes (outside any shell) ─────────────────
       GoRoute(
         path: '/user/tracking/:flightId',
         builder: (_, state) => TrackingPage(
@@ -72,30 +107,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           reqId: state.pathParameters['reqId']!,
         ),
       ),
-      GoRoute(path: '/user/history',        builder: (_, __) => const HistoryPage()),
-      GoRoute(path: '/user/notifications',  builder: (_, __) => const NotificationsPage()),
-      GoRoute(path: '/user/profile',        builder: (_, __) => const ProfilePage()),
-
-      // Admin
-      GoRoute(path: '/admin/requests',      builder: (_, __) => const AdminRequestsPage()),
       GoRoute(
         path: '/admin/requests/:reqId',
         builder: (_, state) => AdminRequestDetailPage(
           reqId: state.pathParameters['reqId']!,
         ),
       ),
-      GoRoute(path: '/admin/drones',        builder: (_, __) => const AdminDronesPage()),
       GoRoute(
         path: '/admin/drones/:droneId',
         builder: (_, state) => AdminDroneDetailPage(
           droneId: state.pathParameters['droneId']!,
         ),
       ),
-      GoRoute(path: '/admin/control',       builder: (_, __) => const ControlPage()),
-      GoRoute(path: '/admin/weather',       builder: (_, __) => const AdminWeatherPage()),
-      GoRoute(path: '/admin/inventory',     builder: (_, __) => const AdminInventoryPage()),
     ],
-    errorBuilder: (_, state) => _Placeholder('No route for ${state.uri.path}'),
+    errorBuilder: (_, __) => const _Placeholder(),
   );
 });
 
@@ -120,18 +145,17 @@ class _AuthListenable extends ChangeNotifier {
 }
 
 class _Placeholder extends StatelessWidget {
-  const _Placeholder(this.label);
-  final String label;
+  const _Placeholder();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('DroneAid (placeholder)')),
+      appBar: AppBar(title: const Text('Page not found')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            label,
+            "We couldn't find what you were looking for.",
             style: Theme.of(context).textTheme.headlineSmall,
             textAlign: TextAlign.center,
           ),

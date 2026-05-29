@@ -59,7 +59,6 @@ class _AdminWeatherPageState extends ConsumerState<AdminWeatherPage> {
     final async = ref.watch(weatherStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Weather (P-A-06)')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load weather: $e')),
@@ -86,7 +85,7 @@ class _AdminWeatherPageState extends ConsumerState<AdminWeatherPage> {
           .call<Map<String, dynamic>>({'state': next});
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Weather → ${weatherLabel(next!)}')),
+        SnackBar(content: Text('Weather set to ${weatherLabel(next!)}.')),
       );
       setState(() => _draft = null); // re-sync to server value
     } on FirebaseFunctionsException catch (e) {
@@ -199,8 +198,9 @@ class _Body extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Changing to Storm can abort in-flight drones '
-                    '(20% per tick).',
+                    'Storm immediately recalls in-flight drones; new '
+                    'flights are blocked. Mid-flight: ~3% extra abort '
+                    'chance per tick.',
                     style: TextStyle(color: Colors.amber.shade900),
                   ),
                 ),

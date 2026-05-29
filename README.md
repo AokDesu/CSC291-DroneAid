@@ -12,7 +12,7 @@
 |---|---|
 | Phase | Day 1 bootstrap complete · feature work in progress |
 | Deadline | **2026-06-04** |
-| App code in `app/` | ✅ runs on Android emulator; placeholder pages — feature work pending |
+| App code in `app/` | ✅ all design-spec pages implemented (P-U-01..P-U-09, P-A-01..P-A-07); role-aware shells (user bottom-nav, admin top-tabs + More sheet) |
 | Cloud Functions in `functions/` | ✅ 14 functions wired end-to-end on emulator (callables + scheduled `tickFlights` + `onUserCreated`/`onFlightWritten` triggers); `src/lib/*` (admin, roles, fcm, geo, sim, weather) implemented |
 | Docs in `docs/` | ✅ complete |
 
@@ -167,6 +167,25 @@ Pass through to `flutter run`: e.g. `bun scripts/dev.ts -d emulator-5554`.
 
 Emulator UI at <http://127.0.0.1:4000>.
 
+### Demo accounts (seeded)
+
+| Role  | National ID    | Password   | What you see                                                |
+| ----- | -------------- | ---------- | ----------------------------------------------------------- |
+| User  | 1100000000105  | Demo#101   | Mali — has the seeded `demo-flight-001` enroute             |
+| Admin | 1100000000008  | Admin#001  | Admin dashboard (Requests · Drones · Control · More)        |
+
+The login page's debug-mode card mirrors this table for quick copy-paste.
+
+**User-acceptance test mode** — to drive the app exactly as a graded end user would (no demo-accounts card on login, no **Tick now** FAB on admin Control), pass `--dart-define=USER_MODE=true` through to Flutter:
+
+```bash
+bun scripts/dev.ts -- --dart-define=USER_MODE=true
+# or
+cd app && flutter run --dart-define=USER_MODE=true
+```
+
+Emulator wiring and Crashlytics overrides stay on, so the app still talks to the local Firebase emulators — only the user-visible dev surfaces are hidden.
+
 **Edit loop while `dev.ts` is running**:
 - Edit a `.dart` file → press `r` in the flutter terminal for hot reload (`R` for hot restart).
 - Edit a `.ts` file under `functions/src/` → tsc-watch rebuilds `lib/*.js` → the functions emulator auto-reloads. No manual restart needed.
@@ -192,9 +211,38 @@ The app talks to the local emulators automatically when built in debug mode. On 
 
 ### Known gaps in the local stack
 
-- **`tickFlights` scheduled function does not fire under the emulator** — Firebase doesn't ship a pub/sub emulator for scheduled triggers. Invoke it manually from the Emulator UI's Functions tab when you need a tick.
+- **`tickFlights` scheduled function does not fire under the emulator** — Firebase doesn't ship a pub/sub emulator for scheduled triggers. Two ways to advance active flights:
+  - **Preferred**: tap the **Tick now** FAB on the admin Control page (visible only in `kDebugMode`). It calls the `devTickFlights` callable, which is hard-guarded by `process.env.FUNCTIONS_EMULATOR === "true"` so it cannot run against a real project.
+  - **Fallback**: invoke `tickFlights` directly from the Emulator UI's Functions tab.
 - **FCM push notifications are not delivered to the device under the emulator.** Server-side calls in `functions/src/lib/fcm.ts` still run and log; clients must mock the receive side until staging. In-app inbox (`P-U-08`) is the user-visible notification surface for the demo — see `docs/adr/0002-scope-full-features-fcm-emulator-exempt.md`.
 - **No live deploy.** This is an emulator-only project; deploy workflows have been removed (see PR #7). To run against a real Firebase project later, recreate the workflows from git history and add the `FIREBASE_SERVICE_ACCOUNT` repo secret.
+
+### Demo capture checklist (issue #30)
+
+Drop screenshots into `docs/prototype-screens/live/` next to the design mocks. From a running `bun scripts/dev.ts` + Android emulator:
+
+```bash
+# In a third terminal, while the app is running:
+cd app && flutter screenshot --out=../docs/prototype-screens/live/<page-id>.png
+```
+
+Capture in this order so the screencast can reuse the same flow:
+
+1. `P-U-01` Login — Mali demo creds visible
+2. `P-U-03` Home — catalog + cart + pin
+3. `P-U-04` Queue — at least one active request
+4. `P-U-05` Tracking — drone on map, battery + ETA
+5. `P-U-06` Confirm — after admin assigns + ticks complete
+6. `P-U-07` History — after one confirmed delivery
+7. `P-A-01` Requests — pending + in-flight mix
+8. `P-A-02` Request manage — drone picker visible
+9. `P-A-05` Control — multiple flights + Tick now FAB
+
+Screencast (60-90 s, narrated):
+1. Login as user → submit request.
+2. Login as admin (different account) → approve → assign drone.
+3. Open Control → tap **Tick now** repeatedly.
+4. Back to user → Tracking → Confirm.
 
 ## Claude Code agent-log policy
 

@@ -8,6 +8,142 @@ import { deliveringHoldElapsed, rollAbort, snapshot } from "../lib/sim";
 
 const ACTIVE_STATUSES = ["enroute", "delivering", "returning"] as const;
 
+/// Battery recharged per tick for drones held in `maintenance`. Picked
+/// so a fully-drained drone takes ~5 ticks (5 minutes at the 1-minute
+/// schedule) to climb back to 100%. See
+/// docs/adr/0005-recall-and-storm-evacuation.md.
+const MAINTENANCE_CHARGE_PER_TICK = 20;
+
+/// A `returning` flight that doesn't complete within this real-time
+/// window is force-aborted and the drone is sent to `maintenance` for
+/// human inspection. Defensive — under nominal sim physics a return
+/// trip finishes well within this budget.
+const RETURNING_TIMEOUT_MS = 30 * 60 * 1000;
+
+/// Advances every active flight one tick. Pure body — reusable from the
+/// scheduled wrapper below and from `devTickFlights` (dev-only callable for
+/// the emulator, where scheduled triggers do not fire).
+///
+/// Returns `{ count }` so callers can surface "ticked N flights" to the UI.
+export async function tickAllFlights(nowMs: number = Date.now()): Promise<{ count: number }> {
+  const weatherSnap = await db.doc("weather/current").get();
+  const weather = ((weatherSnap.data()?.state as WeatherState) ?? "clear");
+
+  const flightsSnap = await db
+    .collection("flights")
+    .where("status", "in", ACTIVE_STATUSES as unknown as string[])
+    .get();
+
+  for (const doc of flightsSnap.docs) {
+    const f = doc.data();
+    const flightState = {
+      origin: f.origin,
+      destination: f.destination,
+      takeoffAt: (f.takeoffAt as FirebaseFirestore.Timestamp).toMillis(),
+      speedKmh: f.speedKmh as number,
+      weatherModifierAtTakeoff: f.weatherModifierAtTakeoff as number,
+      batteryAtTakeoff: f.batteryAtTakeoff as number,
+    };
+    const snap = snapshot(flightState, nowMs, weather);
+
+    const status = f.status as (typeof ACTIVE_STATUSES)[number];
+    const requestId = f.requestId as string;
+    const droneId = f.droneId as string;
+
+    // ── Enroute: roll failure dice, otherwise advance toward delivering ────
+    if (status === "enroute") {
+      const abort = rollAbort({ weather, battery: snap.battery });
+      if (abort) {
+        await failFlight(doc.id, requestId, droneId, abort, snap.battery);
+        continue;
+      }
+      if (snap.progress >= 1.0) {
+        await doc.ref.update({
+          status: "delivering",
+          deliveringStartedAt: Timestamp.fromMillis(nowMs),
+        });
+        continue;
+      }
+      continue; // still in flight, no DB write needed
+    }
+
+    // ── Delivering: hold 60 s then complete ──────────────────────────────
+    if (status === "delivering") {
+      const startMs = (f.deliveringStartedAt as FirebaseFirestore.Timestamp | undefined)
+        ?.toMillis() ?? nowMs;
+      if (deliveringHoldElapsed(startMs, nowMs)) {
+        await db.runTransaction(async (tx) => {
+          tx.update(doc.ref, { status: "completed" });
+          tx.update(db.doc(`requests/${requestId}`), { status: "delivered" });
+        });
+      }
+      continue;
+    }
+
+    // ── Returning: when drone gets back, set drone idle ──────────────────
+    if (status === "returning") {
+      const returningStartedAt =
+        (f.returningStartedAt as FirebaseFirestore.Timestamp | undefined)?.toMillis() ?? nowMs;
+      // Defensive cap — a return trip that never finishes hangs the
+      // drone forever otherwise. See RETURNING_TIMEOUT_MS.
+      if (nowMs - returningStartedAt > RETURNING_TIMEOUT_MS) {
+        await db.runTransaction(async (tx) => {
+          tx.update(doc.ref, { status: "aborted", failureType: "stuck_returning" });
+          tx.update(db.doc(`drones/${droneId}`), {
+            status: "maintenance",
+            currentFlightId: null,
+          });
+        });
+        continue;
+      }
+      // Reuse snapshot math by swapping origin/destination since we're
+      // heading home. `batteryAtReturnStart` is persisted by every path
+      // that transitions a flight to `returning` (confirmDelivery + the
+      // recallFlightTx helper). Falling back to the original
+      // `batteryAtTakeoff` keeps pre-patch in-flight returns drivable but
+      // reproduces the old over-credit bug for them.
+      const returnState = {
+        ...flightState,
+        takeoffAt: returningStartedAt,
+        origin: f.destination,
+        destination: f.origin,
+        batteryAtTakeoff:
+          (f.batteryAtReturnStart as number | undefined) ??
+          (f.batteryAtTakeoff as number),
+      };
+      const back = snapshot(returnState, nowMs, weather);
+      if (back.progress >= 1.0) {
+        await db.runTransaction(async (tx) => {
+          tx.update(doc.ref, { status: "completed", archived: true });
+          tx.update(db.doc(`drones/${droneId}`), {
+            status: "idle",
+            currentFlightId: null,
+            batteryPct: Math.max(0, Math.floor(back.battery)),
+          });
+        });
+      }
+      continue;
+    }
+  }
+
+  await chargeMaintenanceDrones();
+
+  return { count: flightsSnap.size };
+}
+
+async function chargeMaintenanceDrones(): Promise<void> {
+  const snap = await db
+    .collection("drones")
+    .where("status", "==", "maintenance")
+    .get();
+  for (const doc of snap.docs) {
+    const current = (doc.data().batteryPct as number | undefined) ?? 0;
+    if (current >= 100) continue;
+    const next = Math.min(100, current + MAINTENANCE_CHARGE_PER_TICK);
+    await doc.ref.update({ batteryPct: next });
+  }
+}
+
 export const tickFlights = onSchedule(
   {
     schedule: "every 1 minutes",
@@ -16,84 +152,7 @@ export const tickFlights = onSchedule(
     region: "asia-southeast1",
   },
   async () => {
-    const nowMs = Date.now();
-    const weatherSnap = await db.doc("weather/current").get();
-    const weather = ((weatherSnap.data()?.state as WeatherState) ?? "clear");
-
-    const flightsSnap = await db
-      .collection("flights")
-      .where("status", "in", ACTIVE_STATUSES as unknown as string[])
-      .get();
-
-    for (const doc of flightsSnap.docs) {
-      const f = doc.data();
-      const flightState = {
-        origin: f.origin,
-        destination: f.destination,
-        takeoffAt: (f.takeoffAt as FirebaseFirestore.Timestamp).toMillis(),
-        speedKmh: f.speedKmh as number,
-        weatherModifierAtTakeoff: f.weatherModifierAtTakeoff as number,
-        batteryAtTakeoff: f.batteryAtTakeoff as number,
-      };
-      const snap = snapshot(flightState, nowMs, weather);
-
-      const status = f.status as (typeof ACTIVE_STATUSES)[number];
-      const requestId = f.requestId as string;
-      const droneId = f.droneId as string;
-
-      // ── Enroute: roll failure dice, otherwise advance toward delivering ────
-      if (status === "enroute") {
-        const abort = rollAbort({ weather, battery: snap.battery });
-        if (abort) {
-          await failFlight(doc.id, requestId, droneId, abort, snap.battery);
-          continue;
-        }
-        if (snap.progress >= 1.0) {
-          await doc.ref.update({
-            status: "delivering",
-            deliveringStartedAt: Timestamp.fromMillis(nowMs),
-          });
-          continue;
-        }
-        continue; // still in flight, no DB write needed
-      }
-
-      // ── Delivering: hold 60 s then complete ──────────────────────────────
-      if (status === "delivering") {
-        const startMs = (f.deliveringStartedAt as FirebaseFirestore.Timestamp | undefined)
-          ?.toMillis() ?? nowMs;
-        if (deliveringHoldElapsed(startMs, nowMs)) {
-          await db.runTransaction(async (tx) => {
-            tx.update(doc.ref, { status: "completed" });
-            tx.update(db.doc(`requests/${requestId}`), { status: "delivered" });
-          });
-        }
-        continue;
-      }
-
-      // ── Returning: when drone gets back, set drone idle ──────────────────
-      if (status === "returning") {
-        const returningStartedAt =
-          (f.returningStartedAt as FirebaseFirestore.Timestamp | undefined)?.toMillis() ?? nowMs;
-        // Reuse snapshot math by swapping origin/destination since we're heading home.
-        const back = snapshot(
-          { ...flightState, takeoffAt: returningStartedAt, origin: f.destination, destination: f.origin },
-          nowMs,
-          weather,
-        );
-        if (back.progress >= 1.0) {
-          await db.runTransaction(async (tx) => {
-            tx.update(doc.ref, { status: "completed", archived: true });
-            tx.update(db.doc(`drones/${droneId}`), {
-              status: "idle",
-              currentFlightId: null,
-              batteryPct: Math.max(0, Math.floor(snap.battery)),
-            });
-          });
-        }
-        continue;
-      }
-    }
+    await tickAllFlights(Date.now());
   },
 );
 
