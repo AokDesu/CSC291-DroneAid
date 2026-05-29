@@ -36,6 +36,7 @@ export const confirmDelivery = onCall(async (req) => {
 
   const reqRef = db.doc(`requests/${parsed.data.reqId}`);
   await db.runTransaction(async (tx) => {
+    // ── All reads first (Firestore tx requirement) ─────────────────────
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Request not found.");
     const r = reqSnap.data() ?? {};
@@ -45,28 +46,19 @@ export const confirmDelivery = onCall(async (req) => {
     const flightRef = r.currentFlightId
       ? db.doc(`flights/${r.currentFlightId}`)
       : null;
+    const flightSnap = flightRef ? await tx.get(flightRef) : null;
 
+    // ── Then writes ────────────────────────────────────────────────────
     if (r.status === "delivered") {
-      // Existing path — server tick already flipped delivered. Just
-      // confirm + send the linked flight home.
       tx.update(reqRef, { status: "confirmed", decidedAt: Timestamp.now() });
-      if (flightRef) {
-        const flightSnap = await tx.get(flightRef);
-        if (flightSnap.exists) {
-          tx.update(flightRef, { status: "returning", returningStartedAt: Timestamp.now() });
-        }
+      if (flightRef && flightSnap?.exists) {
+        tx.update(flightRef, { status: "returning", returningStartedAt: Timestamp.now() });
       }
       return;
     }
 
     if (r.status === "in_flight") {
-      // User-driven arrival. Re-validate that the drone is actually at
-      // the destination by re-running the simulator snapshot.
-      if (!flightRef) {
-        throw new HttpsError("failed-precondition", "Request has no active flight.");
-      }
-      const flightSnap = await tx.get(flightRef);
-      if (!flightSnap.exists) {
+      if (!flightRef || !flightSnap?.exists) {
         throw new HttpsError("failed-precondition", "Linked flight not found.");
       }
       const f = flightSnap.data() ?? {};
