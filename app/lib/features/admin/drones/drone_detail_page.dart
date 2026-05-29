@@ -15,6 +15,7 @@ import '../../../core/widgets/battery_bar.dart';
 import '../../user/tracking/flight_provider.dart' show flightStreamProvider;
 import '../drones_page.dart' show droneStatusColor, droneStatusLabel;
 import 'drone.dart';
+import 'drone_dialogs.dart';
 import 'drone_providers.dart';
 
 const _functionsRegion = 'asia-southeast1';
@@ -47,7 +48,7 @@ String? nextMaintenanceMode(String current) {
     case 'offline':
       return 'maintenance';
     default:
-      return null; // flying / unknown
+      return null; // flying / retired / unknown
   }
 }
 
@@ -159,6 +160,50 @@ class _DroneDetailBody extends ConsumerWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                key: const Key('drone-detail-edit'),
+                onPressed: flying
+                    ? null
+                    : () => showEditDroneDialog(context, drone),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Edit'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: drone.status == 'retired'
+                  ? OutlinedButton.icon(
+                      key: const Key('drone-detail-restore'),
+                      onPressed: () => _confirmAndApply(
+                        context,
+                        drone: drone,
+                        nextMode: 'idle',
+                        actionLabel: 'Restore',
+                      ),
+                      icon: const Icon(Icons.restore),
+                      label: const Text('Restore'),
+                    )
+                  : OutlinedButton.icon(
+                      key: const Key('drone-detail-retire'),
+                      onPressed: flying
+                          ? null
+                          : () => _retireDrone(context, drone),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                      ),
+                      label: const Text(
+                        'Retire',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -404,6 +449,51 @@ class _MetricRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> _retireDrone(BuildContext context, Drone drone) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('Retire ${drone.name}?'),
+      content: const Text(
+        'The drone is soft-deleted: hidden from the fleet list and refused '
+        'for new flights. You can restore it later from the Retired filter.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          child: const Text('Retire'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final fns = FirebaseFunctions.instanceFor(region: _functionsRegion);
+    await fns.httpsCallable('retireDrone').call<Map<String, dynamic>>(
+      {'droneId': drone.id},
+    );
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text('${drone.name} retired.')),
+    );
+  } on FirebaseFunctionsException catch (e) {
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text('Failed: ${e.message ?? e.code}')),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
   }
 }
 

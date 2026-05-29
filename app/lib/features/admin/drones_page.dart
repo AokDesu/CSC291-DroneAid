@@ -13,14 +13,18 @@ import '../../core/widgets/battery_bar.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/error_retry.dart';
 import 'drones/drone.dart';
+import 'drones/drone_dialogs.dart';
 import 'drones/drone_providers.dart';
 
-/// Canonical filter set. Empty selection means "All".
+/// Canonical filter set. Empty selection means "All" — but retired drones
+/// are still hidden unless the `retired` chip is explicitly selected (see
+/// `applyDroneFilter`).
 const _statusFilters = <String>[
   'idle',
   'flying',
   'maintenance',
   'offline',
+  'retired',
 ];
 
 /// Per-status display color. Mirrors the prototype palette (P-A-03 doc).
@@ -36,6 +40,8 @@ Color droneStatusColor(String status, ColorScheme scheme) {
       return Colors.amber.shade700;
     case 'offline':
       return Colors.grey;
+    case 'retired':
+      return Colors.blueGrey.shade400;
     default:
       return Colors.grey;
   }
@@ -51,15 +57,22 @@ String droneStatusLabel(String status) {
       return 'Maint.';
     case 'offline':
       return 'Offline';
+    case 'retired':
+      return 'Retired';
     default:
       return status;
   }
 }
 
-/// Client-side filter. Empty set = no filter.
+/// Client-side filter. `retired` drones are hidden by default — they only
+/// appear when the `retired` chip is selected.
 @visibleForTesting
 List<Drone> applyDroneFilter(List<Drone> drones, Set<String> selected) {
-  if (selected.isEmpty) return drones;
+  if (selected.isEmpty) {
+    return drones
+        .where((d) => d.status != 'retired')
+        .toList(growable: false);
+  }
   return drones.where((d) => selected.contains(d.status)).toList(growable: false);
 }
 
@@ -74,6 +87,12 @@ class AdminDronesPage extends ConsumerWidget {
     final selected = ref.watch(_droneFilterProvider);
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('drones-add-fab'),
+        onPressed: () => showAddDroneDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add drone'),
+      ),
       body: Column(
         children: [
           _FilterBar(selected: selected),
