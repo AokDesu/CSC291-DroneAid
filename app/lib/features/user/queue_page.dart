@@ -186,21 +186,27 @@ class _QueueRow extends ConsumerWidget {
               Text(summary, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 4),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    '${request.totalWeightKg.toStringAsFixed(1)} kg',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(time, style: theme.textTheme.bodySmall),
-                  if (request.currentFlightId != null) ...[
-                    const SizedBox(width: 12),
-                    Text(
-                      'Flight ${request.currentFlightId}',
-                      style: theme.textTheme.bodySmall,
+                  Expanded(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          '${request.totalWeightKg.toStringAsFixed(1)} kg',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        Text(time, style: theme.textTheme.bodySmall),
+                        if (request.currentFlightId != null)
+                          Text(
+                            'Flight ${request.currentFlightId}',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
-                  ],
-                  const Spacer(),
+                  ),
                   if (isPending)
                     TextButton(
                       key: Key('cancel-${request.id}'),

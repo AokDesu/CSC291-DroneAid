@@ -214,98 +214,106 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Text('Account', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _name,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Phone',
-              border: OutlineInputBorder(),
-            ),
-            validator: _validatePhone,
-          ),
-          const SizedBox(height: 24),
-          Text('Delivery address', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Enter coordinates for your delivery point. Or tap the map on the Home tab to drop a pin.',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          Row(
+          _ProfileHeader(profile: widget.initial),
+          const SizedBox(height: 16),
+          _SectionCard(
+            title: 'Account',
             children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _lat,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Latitude',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => _validateCoord(v, isLat: true),
+              TextFormField(
+                controller: _name,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _lng,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone',
+                  border: OutlineInputBorder(),
+                ),
+                validator: _validatePhone,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            title: 'Delivery address',
+            subtitle:
+                'Enter coordinates for your delivery point. Or tap the map on the Home tab to drop a pin.',
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _lat,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Latitude',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => _validateCoord(v, isLat: true),
+                    ),
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Longitude',
-                    border: OutlineInputBorder(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _lng,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Longitude',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => _validateCoord(v, isLat: false),
+                    ),
                   ),
-                  validator: (v) => _validateCoord(v, isLat: false),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _label,
+                decoration: const InputDecoration(
+                  labelText: 'Label (e.g. "Home")',
+                  border: OutlineInputBorder(),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _label,
-            decoration: const InputDecoration(
-              labelText: 'Label (e.g. "Home")',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text('Preferences', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _theme,
-            decoration: const InputDecoration(
-              labelText: 'Theme',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'system', child: Text('System')),
-              DropdownMenuItem(value: 'light', child: Text('Light')),
-              DropdownMenuItem(value: 'dark', child: Text('Dark')),
+          _SectionCard(
+            title: 'Preferences',
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _theme,
+                decoration: const InputDecoration(
+                  labelText: 'Theme',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'system', child: Text('System')),
+                  DropdownMenuItem(value: 'light', child: Text('Light')),
+                  DropdownMenuItem(value: 'dark', child: Text('Dark')),
+                ],
+                onChanged: (v) => setState(() => _theme = v ?? 'system'),
+              ),
+              const SizedBox(height: 4),
+              SwitchListTile(
+                value: _notificationsEnabled,
+                title: const Text('Notifications'),
+                onChanged: (v) => setState(() => _notificationsEnabled = v),
+                contentPadding: EdgeInsets.zero,
+              ),
             ],
-            onChanged: (v) => setState(() => _theme = v ?? 'system'),
-          ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            value: _notificationsEnabled,
-            title: const Text('Notifications'),
-            onChanged: (v) => setState(() => _notificationsEnabled = v),
-            contentPadding: EdgeInsets.zero,
           ),
           if (_serverError != null) ...[
             const SizedBox(height: 12),
@@ -338,6 +346,165 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             child: const Text('Log out'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile});
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = (profile.name?.trim().isNotEmpty ?? false)
+        ? profile.name!.trim()
+        : 'Unnamed user';
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _Avatar(name: name),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: theme.textTheme.titleLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _RolePill(role: profile.role),
+                      if (profile.nationalId != null)
+                        Text(
+                          'ID ${_maskNationalId(profile.nationalId!)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+    return CircleAvatar(
+      radius: 28,
+      backgroundColor: theme.colorScheme.primaryContainer,
+      child: Text(
+        initials.isEmpty ? '?' : initials,
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: theme.colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _RolePill extends StatelessWidget {
+  const _RolePill({required this.role});
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isAdmin = role == 'admin';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isAdmin
+            ? theme.colorScheme.primary
+            : theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        isAdmin ? 'Admin' : 'User',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: isAdmin
+              ? theme.colorScheme.onPrimary
+              : theme.colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// 13-digit Thai national IDs: show first 4 + last 3 digits, mask the rest.
+/// "1234567890123" → "1234-XXXXXX-123".
+String _maskNationalId(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 7) return raw;
+  final head = digits.substring(0, 4);
+  final tail = digits.substring(digits.length - 3);
+  final hiddenCount = digits.length - 7;
+  return '$head-${'X' * hiddenCount}-$tail';
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.children,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, style: theme.textTheme.titleMedium),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(subtitle!, style: theme.textTheme.bodySmall),
+            ],
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
       ),
     );
   }

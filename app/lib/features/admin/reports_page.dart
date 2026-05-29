@@ -106,21 +106,21 @@ class _ReportRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
                 children: [
                   Text(
                     'on #${report.requestId}',
                     style: theme.textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 12),
                   Text(age, style: theme.textTheme.bodySmall),
-                  if (report.requestStatusAtFiling != null) ...[
-                    const SizedBox(width: 12),
+                  if (report.requestStatusAtFiling != null)
                     Text(
                       'at: ${report.requestStatusAtFiling}',
                       style: theme.textTheme.bodySmall,
                     ),
-                  ],
                 ],
               ),
             ],

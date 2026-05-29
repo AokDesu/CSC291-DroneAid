@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/error_retry.dart';
 import 'inventory/catalog_item.dart';
 import 'inventory/catalog_providers.dart';
 
@@ -65,10 +67,17 @@ class AdminInventoryPage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load catalog: $e')),
+        error: (e, _) => ErrorRetry(
+          message: 'Failed to load catalog: $e',
+          onRetry: () => ref.invalidate(adminCatalogStreamProvider),
+        ),
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('No catalog items yet.'));
+            return const EmptyState(
+              icon: Icons.inventory_2_outlined,
+              title: 'No catalog items yet',
+              helper: 'Tap "Add item" to create your first one.',
+            );
           }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),

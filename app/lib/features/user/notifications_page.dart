@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/firebase_errors.dart';
+import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/loading_placeholder.dart';
 import 'notifications/notifications_provider.dart';
 import 'request/app_request.dart' show relativeTime;
@@ -57,7 +58,11 @@ class NotificationsPage extends ConsumerWidget {
         error: (e, _) => Center(child: Text('Failed to load notifications: ${describeFunctionsError(e)}')),
         data: (notifications) {
           if (notifications.isEmpty) {
-            return const Center(child: Text('No notifications yet.'));
+            return const EmptyState(
+              icon: Icons.notifications_none,
+              title: 'No notifications yet',
+              helper: 'Updates about your drone deliveries will show up here.',
+            );
           }
           return ListView.separated(
             itemCount: notifications.length,

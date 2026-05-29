@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/battery_bar.dart';
+import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/error_retry.dart';
 import 'drones/drone.dart';
 import 'drones/drone_providers.dart';
 
@@ -79,16 +81,24 @@ class AdminDronesPage extends ConsumerWidget {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Failed to load drones: $e')),
+              error: (e, _) => ErrorRetry(
+                message: 'Failed to load drones: $e',
+                onRetry: () => ref.invalidate(adminDronesStreamProvider),
+              ),
               data: (all) {
                 if (all.isEmpty) {
-                  return const Center(child: Text('No drones yet.'));
+                  return const EmptyState(
+                    icon: Icons.flight,
+                    title: 'No drones yet',
+                    helper: 'Once the fleet is seeded, drones show up here.',
+                  );
                 }
                 final filtered = applyDroneFilter(all, selected);
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text('No drones in this filter.'),
+                  return const EmptyState(
+                    icon: Icons.filter_alt_off,
+                    title: 'No drones in this filter',
+                    helper: 'Try clearing or changing the status filter above.',
                   );
                 }
                 return ListView.separated(

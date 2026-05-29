@@ -194,21 +194,21 @@ class _HistoryRow extends StatelessWidget {
               const SizedBox(height: 4),
               Text(summary, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 4),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
                 children: [
                   Text(
                     '${request.totalWeightKg.toStringAsFixed(1)} kg',
                     style: theme.textTheme.bodySmall,
                   ),
-                  const SizedBox(width: 12),
                   Text(time, style: theme.textTheme.bodySmall),
-                  if (request.currentFlightId != null) ...[
-                    const SizedBox(width: 12),
+                  if (request.currentFlightId != null)
                     Text(
                       'Flight ${request.currentFlightId}',
                       style: theme.textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
                 ],
               ),
             ],

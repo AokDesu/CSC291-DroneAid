@@ -85,7 +85,7 @@ class _AdminWeatherPageState extends ConsumerState<AdminWeatherPage> {
           .call<Map<String, dynamic>>({'state': next});
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Weather → ${weatherLabel(next!)}')),
+        SnackBar(content: Text('Weather set to ${weatherLabel(next!)}.')),
       );
       setState(() => _draft = null); // re-sync to server value
     } on FirebaseFunctionsException catch (e) {

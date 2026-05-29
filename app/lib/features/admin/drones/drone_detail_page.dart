@@ -443,7 +443,7 @@ Future<void> _confirmAndApply(
     );
     if (!context.mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: Text('${drone.name} → ${droneStatusLabel(nextMode)}')),
+      SnackBar(content: Text('${drone.name} is now ${droneStatusLabel(nextMode)}.')),
     );
   } on FirebaseFunctionsException catch (e) {
     if (!context.mounted) return;

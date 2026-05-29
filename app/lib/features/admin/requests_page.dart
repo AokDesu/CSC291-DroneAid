@@ -200,31 +200,29 @@ class _AdminRequestRow extends StatelessWidget {
               const SizedBox(height: 6),
               Text(summary, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 4),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text('#${request.id}', style: theme.textTheme.bodySmall),
-                  const SizedBox(width: 12),
                   Text(
                     '${request.totalWeightKg.toStringAsFixed(1)} kg',
                     style: theme.textTheme.bodySmall,
                   ),
-                  const SizedBox(width: 12),
                   Text(age, style: theme.textTheme.bodySmall),
-                  if (request.currentFlightId != null) ...[
-                    const SizedBox(width: 12),
+                  if (request.currentFlightId != null)
                     Text(
                       'Flight ${request.currentFlightId}',
                       style: theme.textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                  if (request.priority == 'urgent') ...[
-                    const SizedBox(width: 12),
+                  if (request.priority == 'urgent')
                     Icon(
                       Icons.priority_high,
                       size: 16,
                       color: theme.colorScheme.error,
                     ),
-                  ],
                 ],
               ),
             ],
