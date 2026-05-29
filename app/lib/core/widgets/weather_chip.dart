@@ -18,15 +18,27 @@ class WeatherChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(weatherStreamProvider);
     final profile = ref.watch(userProfileProvider).valueOrNull;
+    final hasError = async.hasError && !async.isLoading;
     final state = async.valueOrNull?.state ?? 'clear';
     final isAdmin = profile?.isAdmin ?? false;
+    final theme = Theme.of(context);
 
-    final icon = _iconFor(state);
-    final label = _labelFor(state);
+    final icon = hasError ? Icons.cloud_off : _iconFor(state);
+    final label = hasError ? 'Offline' : _labelFor(state);
+    final fg = hasError
+        ? theme.colorScheme.onSurfaceVariant
+        : theme.colorScheme.onSurface;
+    final bg = hasError
+        ? theme.colorScheme.surfaceContainerHighest
+        : null;
 
     final chip = Chip(
-      avatar: Icon(icon, size: 16),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      avatar: Icon(icon, size: 16, color: fg),
+      label: Text(
+        label,
+        style: TextStyle(fontSize: 12, color: fg),
+      ),
+      backgroundColor: bg,
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );

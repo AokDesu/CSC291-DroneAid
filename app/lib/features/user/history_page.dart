@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/firebase_errors.dart';
+import '../../core/widgets/error_retry.dart';
 import '../../core/widgets/loading_placeholder.dart';
 import '../../core/widgets/status_chip.dart';
 import '../reports/report.dart';
@@ -66,7 +67,10 @@ class HistoryPage extends ConsumerWidget {
     return Scaffold(
       body: async.when(
         loading: () => const LoadingPlaceholder(label: 'Loading history…'),
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        error: (e, _) => ErrorRetry(
+          message: 'Failed to load: $e',
+          onRetry: () => ref.invalidate(myRequestsProvider),
+        ),
         data: (all) {
           final history = all
               .where((r) => r.bucket == QueueBucket.hidden)

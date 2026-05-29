@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/widgets/error_retry.dart';
 import '../../core/widgets/status_chip.dart';
 import 'requests/admin_request.dart';
 import 'requests/admin_requests_provider.dart';
@@ -108,8 +109,10 @@ class _AdminRequestsPageState extends ConsumerState<AdminRequestsPage> {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Failed to load requests: $e')),
+              error: (e, _) => ErrorRetry(
+                message: 'Failed to load requests: $e',
+                onRetry: () => ref.invalidate(adminAllRequestsProvider),
+              ),
               data: (all) {
                 final filtered = filterRequests(
                   all,

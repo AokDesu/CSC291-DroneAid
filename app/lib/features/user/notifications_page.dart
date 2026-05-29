@@ -12,6 +12,31 @@ import '../../core/widgets/loading_placeholder.dart';
 import 'notifications/notifications_provider.dart';
 import 'request/app_request.dart' show relativeTime;
 
+/// One-shot existence check for a deepLink destination, so a stale
+/// notification doesn't navigate the user to a "not found" page.
+/// Returns true for routes that don't depend on a per-resource doc.
+Future<bool> _destinationExists(String deepLink) async {
+  final reqMatch =
+      RegExp(r'^/(?:user/confirm|admin/requests)/([^/]+)$').firstMatch(deepLink);
+  if (reqMatch != null) {
+    final snap = await FirebaseFirestore.instance
+        .doc('requests/${reqMatch.group(1)}')
+        .get();
+    return snap.exists;
+  }
+  final flightMatch =
+      RegExp(r'^/(?:user/tracking|admin/drones)/([^/]+)$').firstMatch(deepLink);
+  if (flightMatch != null) {
+    final coll = deepLink.startsWith('/user/tracking') ? 'flights' : 'drones';
+    final snap = await FirebaseFirestore.instance
+        .doc('$coll/${flightMatch.group(1)}')
+        .get();
+    return snap.exists;
+  }
+  // List/index routes (e.g. /admin/reports, /user/history) are always valid.
+  return true;
+}
+
 class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
 
@@ -65,8 +90,20 @@ class NotificationsPage extends ConsumerWidget {
                 ),
                 isThreeLine: true,
                 onTap: () async {
+                  final messenger = ScaffoldMessenger.of(context);
                   if (n.isUnread) await _markRead(uid, n.id);
-                  if (context.mounted) context.go(n.deepLink);
+                  final exists = await _destinationExists(n.deepLink);
+                  if (!context.mounted) return;
+                  if (!exists) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content:
+                            Text('This notification is no longer available.'),
+                      ),
+                    );
+                    return;
+                  }
+                  context.go(n.deepLink);
                 },
               );
             },
