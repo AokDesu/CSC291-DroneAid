@@ -4,7 +4,7 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { z } from "zod";
 import { db, FieldValue } from "../lib/admin";
-import { requireUser } from "../lib/roles";
+import { requireAuthOnly } from "../lib/roles";
 
 const PinSchema = z.object({
   lat: z.number().gte(-90).lte(90),
@@ -25,7 +25,11 @@ const InputSchema = z.object({
 });
 
 export const updateProfile = onCall(async (req) => {
-  const { uid } = await requireUser(req);
+  // requireAuthOnly (not requireUser) so a freshly-registered user can
+  // patch name/phone before the onUserCreated Auth trigger has finished
+  // provisioning users/{uid}. The Zod schema below prevents tampering
+  // with role / locked / nationalId.
+  const { uid } = await requireAuthOnly(req);
   const parsed = InputSchema.safeParse(req.data);
   if (!parsed.success) throw new HttpsError("invalid-argument", parsed.error.message);
   const payload = parsed.data;

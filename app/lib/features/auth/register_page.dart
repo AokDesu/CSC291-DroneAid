@@ -24,7 +24,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _phoneCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
   final _pw2Ctrl = TextEditingController();
-  bool _terms = false;
   bool _submitting = false;
   String? _serverError;
 
@@ -45,13 +44,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 
   bool get _canSubmit {
-    if (!_terms) return false;
     final id = _idCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
+    final phoneOk =
+        phone.isEmpty || RegExp(r'^\+?\d{10,15}$').hasMatch(phone);
     return _nameCtrl.text.trim().isNotEmpty &&
         id.length == 13 &&
         ThaiIdValidator.isValid(id) &&
-        RegExp(r'^\+?\d{10,15}$').hasMatch(phone) &&
+        phoneOk &&
         _pwCtrl.text.length >= 8 &&
         _pwCtrl.text == _pw2Ctrl.text;
   }
@@ -69,7 +69,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   String? _vPhone(String? v) {
     final s = (v ?? '').trim();
-    if (s.isEmpty) return 'Required';
+    if (s.isEmpty) return null; // optional
     if (!RegExp(r'^\+?\d{10,15}$').hasMatch(s)) return 'Use 10-15 digits, optional +';
     return null;
   }
@@ -86,7 +86,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   Future<void> _submit() async {
     setState(() => _serverError = null);
-    if (!_formKey.currentState!.validate() || !_terms) return;
+    if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
       await ref.read(authRepositoryProvider).registerWithNationalId(
@@ -159,7 +159,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'Phone (e.g. +66 81 ...)',
+                    labelText: 'Phone (optional)',
+                    hintText: 'e.g. +66 81 ...',
                     border: OutlineInputBorder(),
                   ),
                   validator: _vPhone,
@@ -187,14 +188,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   validator: _vPw2,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _canSubmit ? _submit() : null,
-                ),
-                const SizedBox(height: 12),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  value: _terms,
-                  onChanged: (v) => setState(() => _terms = v ?? false),
-                  title: const Text('I agree to the program terms.'),
                 ),
                 if (_serverError != null) ...[
                   const SizedBox(height: 4),
