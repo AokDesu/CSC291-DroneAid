@@ -31,6 +31,7 @@ export { createCatalogItem } from "./callable/createCatalogItem";
 export { toggleCatalogActive } from "./callable/toggleCatalogActive";
 export { resolveReport } from "./callable/resolveReport";
 export { dismissReport } from "./callable/dismissReport";
+export { recallFlight } from "./callable/recallFlight";
 
 // ── Scheduled ───────────────────────────────────────────────────────────
 export { tickFlights } from "./scheduled/tickFlights";

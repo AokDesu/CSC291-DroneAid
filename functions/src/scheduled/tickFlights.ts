@@ -8,6 +8,18 @@ import { deliveringHoldElapsed, rollAbort, snapshot } from "../lib/sim";
 
 const ACTIVE_STATUSES = ["enroute", "delivering", "returning"] as const;
 
+/// Battery recharged per tick for drones held in `maintenance`. Picked
+/// so a fully-drained drone takes ~5 ticks (5 minutes at the 1-minute
+/// schedule) to climb back to 100%. See
+/// docs/adr/0005-recall-and-storm-evacuation.md.
+const MAINTENANCE_CHARGE_PER_TICK = 20;
+
+/// A `returning` flight that doesn't complete within this real-time
+/// window is force-aborted and the drone is sent to `maintenance` for
+/// human inspection. Defensive — under nominal sim physics a return
+/// trip finishes well within this budget.
+const RETURNING_TIMEOUT_MS = 30 * 60 * 1000;
+
 /// Advances every active flight one tick. Pure body — reusable from the
 /// scheduled wrapper below and from `devTickFlights` (dev-only callable for
 /// the emulator, where scheduled triggers do not fire).
@@ -72,6 +84,18 @@ export async function tickAllFlights(nowMs: number = Date.now()): Promise<{ coun
     if (status === "returning") {
       const returningStartedAt =
         (f.returningStartedAt as FirebaseFirestore.Timestamp | undefined)?.toMillis() ?? nowMs;
+      // Defensive cap — a return trip that never finishes hangs the
+      // drone forever otherwise. See RETURNING_TIMEOUT_MS.
+      if (nowMs - returningStartedAt > RETURNING_TIMEOUT_MS) {
+        await db.runTransaction(async (tx) => {
+          tx.update(doc.ref, { status: "aborted", failureType: "stuck_returning" });
+          tx.update(db.doc(`drones/${droneId}`), {
+            status: "maintenance",
+            currentFlightId: null,
+          });
+        });
+        continue;
+      }
       // Reuse snapshot math by swapping origin/destination since we're heading home.
       const back = snapshot(
         { ...flightState, takeoffAt: returningStartedAt, origin: f.destination, destination: f.origin },
@@ -92,7 +116,22 @@ export async function tickAllFlights(nowMs: number = Date.now()): Promise<{ coun
     }
   }
 
+  await chargeMaintenanceDrones();
+
   return { count: flightsSnap.size };
+}
+
+async function chargeMaintenanceDrones(): Promise<void> {
+  const snap = await db
+    .collection("drones")
+    .where("status", "==", "maintenance")
+    .get();
+  for (const doc of snap.docs) {
+    const current = (doc.data().batteryPct as number | undefined) ?? 0;
+    if (current >= 100) continue;
+    const next = Math.min(100, current + MAINTENANCE_CHARGE_PER_TICK);
+    await doc.ref.update({ batteryPct: next });
+  }
 }
 
 export const tickFlights = onSchedule(
