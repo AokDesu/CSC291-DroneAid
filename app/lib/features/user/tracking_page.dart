@@ -1,15 +1,19 @@
 // P-U-05 — Live Tracking. Spec: docs/09-page-flow-design.md §5 P-U-05.
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/firebase_errors.dart';
 import '../../core/widgets/battery_bar.dart';
 import '../../core/widgets/drone_map.dart';
 import '../../core/widgets/status_chip.dart';
 import 'tracking/flight_provider.dart';
 import 'tracking/interpolation.dart';
+
+const _functionsRegion = 'asia-southeast1';
 
 class TrackingPage extends ConsumerStatefulWidget {
   const TrackingPage({required this.flightId, super.key});
@@ -117,8 +121,12 @@ class _TrackingBody extends StatelessWidget {
       (flight.origin.longitude + flight.destination.longitude) / 2,
     );
 
+    final hasArrived = (flight.status == 'enroute' && snap.progress >= 1.0) ||
+        flight.status == 'delivering';
+
     return Column(
       children: [
+        if (hasArrived) _ArrivalCta(reqId: flight.requestId),
         _StatusBanner(
           status: flight.status,
           failureType: flight.failureType,
@@ -318,6 +326,84 @@ class _InfoRow extends StatelessWidget {
                     const TextStyle(color: Colors.black54, fontSize: 13,),),
           ),
           Text(value, style: const TextStyle(fontSize: 13)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Arrival CTA — visible when the drone is at the destination, before the
+// server tick has flipped the request through delivered → confirmed.
+// Tapping invokes confirmDelivery which collapses delivered + confirmed
+// into one transition (server re-validates arrival math).
+// ---------------------------------------------------------------------------
+
+class _ArrivalCta extends ConsumerStatefulWidget {
+  const _ArrivalCta({required this.reqId});
+  final String reqId;
+
+  @override
+  ConsumerState<_ArrivalCta> createState() => _ArrivalCtaState();
+}
+
+class _ArrivalCtaState extends ConsumerState<_ArrivalCta> {
+  bool _confirming = false;
+
+  Future<void> _confirm() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    setState(() => _confirming = true);
+    try {
+      await FirebaseFunctions.instanceFor(region: _functionsRegion)
+          .httpsCallable('confirmDelivery')
+          .call<Map<String, dynamic>>({'reqId': widget.reqId});
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Thanks — supplies received.')),
+      );
+      router.go('/user/queue');
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not confirm: ${describeFunctionsError(e)}')),
+      );
+    } finally {
+      if (mounted) setState(() => _confirming = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.primaryContainer,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Your supplies have arrived.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            key: const Key('arrival-confirm'),
+            onPressed: _confirming ? null : _confirm,
+            icon: _confirming
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_circle_outline),
+            label: const Text("I've received the supplies"),
+          ),
         ],
       ),
     );
