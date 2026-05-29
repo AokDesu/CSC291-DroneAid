@@ -339,18 +339,20 @@ class _InfoRow extends StatelessWidget {
 // into one transition (server re-validates arrival math).
 // ---------------------------------------------------------------------------
 
-class _ArrivalCta extends ConsumerStatefulWidget {
+class _ArrivalCta extends StatefulWidget {
   const _ArrivalCta({required this.reqId});
   final String reqId;
 
   @override
-  ConsumerState<_ArrivalCta> createState() => _ArrivalCtaState();
+  State<_ArrivalCta> createState() => _ArrivalCtaState();
 }
 
-class _ArrivalCtaState extends ConsumerState<_ArrivalCta> {
+class _ArrivalCtaState extends State<_ArrivalCta> {
   bool _confirming = false;
 
   Future<void> _confirm() async {
+    // Capture inherited refs before await so the post-await path doesn't
+    // dereference a context that has already started teardown.
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     setState(() => _confirming = true);
@@ -362,13 +364,20 @@ class _ArrivalCtaState extends ConsumerState<_ArrivalCta> {
       messenger.showSnackBar(
         const SnackBar(content: Text('Thanks — supplies received.')),
       );
-      router.go('/user/queue');
+      // Defer navigation past the current frame so the Firestore stream
+      // emission (flight.status → returning, which removes this CTA from
+      // the parent Column) doesn't race with the route swap. Without the
+      // post-frame hop the simultaneous tree mutations can trip a Flutter
+      // inherited-element assertion during the rebuild.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        router.go('/user/queue');
+      });
+      return;
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text('Could not confirm: ${describeFunctionsError(e)}')),
       );
-    } finally {
       if (mounted) setState(() => _confirming = false);
     }
   }
