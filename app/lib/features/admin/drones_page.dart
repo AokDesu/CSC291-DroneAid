@@ -212,6 +212,26 @@ class _DroneCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (drone.currentFlightId != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                    Icons.flight_takeoff,
+                    size: 14,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    drone.currentFlightId!,
+                    key: Key('drone-flight-${drone.id}'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

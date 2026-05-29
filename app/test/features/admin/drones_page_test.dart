@@ -123,6 +123,26 @@ void main() {
 
       expect(find.text('detail:drn-007'), findsOneWidget);
     });
+
+    testWidgets('shows currentFlightId badge when drone is on a flight',
+        (tester) async {
+      await _pump(
+        tester,
+        drones: [
+          _drone(
+            id: 'drn-008',
+            name: 'DRN-008',
+            status: 'flying',
+            currentFlightId: 'flt-xyz',
+          ),
+          _drone(id: 'drn-009', name: 'DRN-009', status: 'idle'),
+        ],
+      );
+
+      expect(find.byKey(const Key('drone-flight-drn-008')), findsOneWidget);
+      expect(find.text('flt-xyz'), findsOneWidget);
+      expect(find.byKey(const Key('drone-flight-drn-009')), findsNothing);
+    });
   });
 }
 
@@ -132,6 +152,7 @@ Drone _drone({
   String status = 'idle',
   int batteryPct = 100,
   double maxPayloadKg = 6.0,
+  String? currentFlightId,
 }) {
   return Drone(
     id: id,
@@ -141,6 +162,7 @@ Drone _drone({
     baseLat: 13.74,
     baseLng: 100.54,
     maxPayloadKg: maxPayloadKg,
+    currentFlightId: currentFlightId,
   );
 }
 
