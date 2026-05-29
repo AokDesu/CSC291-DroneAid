@@ -10,13 +10,22 @@
 //
 // Read scope is enforced server-side by firestore.rules — owner reads
 // own request's reports, admin reads all.
+//
+// Both providers watch authStateProvider so the underlying Firestore
+// listener is recreated on sign-out / sign-in. Without this, a
+// permission-denied error captured during a previous (non-admin)
+// session would stick in Riverpod's AsyncError cache until app
+// restart. autoDispose tears the stream down when no widget watches.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/auth/auth_providers.dart';
 import 'report.dart';
 
-final adminOpenReportsProvider = StreamProvider<List<Report>>((ref) {
+final adminOpenReportsProvider =
+    StreamProvider.autoDispose<List<Report>>((ref) {
+  ref.watch(authStateProvider);
   final query = FirebaseFirestore.instance
       .collectionGroup('reports')
       .where('status', isEqualTo: 'open')
@@ -27,7 +36,8 @@ final adminOpenReportsProvider = StreamProvider<List<Report>>((ref) {
 });
 
 final requestReportsProvider =
-    StreamProvider.family<List<Report>, String>((ref, reqId) {
+    StreamProvider.autoDispose.family<List<Report>, String>((ref, reqId) {
+  ref.watch(authStateProvider);
   final col = FirebaseFirestore.instance.collection('requests/$reqId/reports');
   return col
       .orderBy('createdAt', descending: true)
