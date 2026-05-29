@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/widgets/loading_placeholder.dart';
 import '../../core/widgets/status_chip.dart';
 import 'request/app_request.dart';
 import 'request/queue_provider.dart';
@@ -23,7 +24,7 @@ class QueuePage extends ConsumerWidget {
 
     return Scaffold(
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingPlaceholder(label: 'Loading your queue…'),
         error: (e, _) => Center(child: Text('Failed to load: $e')),
         data: (all) {
           final pending = all.where((r) => r.bucket == QueueBucket.pending).toList();

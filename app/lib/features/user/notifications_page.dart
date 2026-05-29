@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/firebase_errors.dart';
+import '../../core/widgets/loading_placeholder.dart';
 import 'notifications/notifications_provider.dart';
 import 'request/app_request.dart' show relativeTime;
 
@@ -26,8 +28,8 @@ class NotificationsPage extends ConsumerWidget {
 
     return Scaffold(
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        loading: () => const LoadingPlaceholder(label: 'Loading notifications…'),
+        error: (e, _) => Center(child: Text('Failed to load notifications: ${describeFunctionsError(e)}')),
         data: (notifications) {
           if (notifications.isEmpty) {
             return const Center(child: Text('No notifications yet.'));

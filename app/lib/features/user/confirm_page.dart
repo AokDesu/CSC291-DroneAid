@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/firebase_errors.dart';
+
 const _region = 'asia-southeast1';
 
 final _reqProvider =
@@ -63,7 +65,7 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Could not confirm: ${describeFunctionsError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -112,7 +114,7 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
       appBar: AppBar(title: const Text('Confirm receipt')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text('Failed to load request: ${describeFunctionsError(e)}')),
         data: (data) {
           if (data == null) {
             return const Center(child: Text('Request not found.'));

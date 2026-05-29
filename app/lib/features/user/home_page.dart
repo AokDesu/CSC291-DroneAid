@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/widgets/loading_placeholder.dart';
 import 'request/cart.dart';
 import 'request/catalog.dart';
 import 'request/pin_picker.dart';
@@ -41,7 +42,7 @@ class UserHomePage extends ConsumerWidget {
 
     return Scaffold(
       body: catalogAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingPlaceholder(label: 'Loading supplies…'),
         error: (e, _) => Center(child: Text('Failed to load catalog: $e')),
         data: (catalog) {
           if (catalog.isEmpty) {

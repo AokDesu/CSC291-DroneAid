@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_providers.dart';
 import '../../core/auth/user_profile.dart';
+import '../../core/firebase_errors.dart';
+import '../../core/widgets/loading_placeholder.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -16,7 +18,7 @@ class ProfilePage extends ConsumerWidget {
     final async = ref.watch(userProfileProvider);
     return Scaffold(
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingPlaceholder(label: 'Loading your profile…'),
         error: (e, _) => Center(child: Text('Failed to load: $e')),
         data: (profile) {
           if (profile == null) {
@@ -158,7 +160,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       ref.invalidate(userProfileProvider);
       if (mounted) setState(() => _serverSuccess = 'Saved.');
     } catch (e) {
-      if (mounted) setState(() => _serverError = 'Could not save: $e');
+      if (mounted) setState(() => _serverError = 'Could not save: ${describeFunctionsError(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -237,7 +239,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           Text('Delivery address', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
-            'Pin picker coming with #9 — for now, enter coordinates manually.',
+            'Enter coordinates for your delivery point. Or tap the map on the Home tab to drop a pin.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
