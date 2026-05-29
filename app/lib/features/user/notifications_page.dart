@@ -25,7 +25,6 @@ class NotificationsPage extends ConsumerWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),

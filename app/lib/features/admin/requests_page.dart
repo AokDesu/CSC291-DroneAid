@@ -62,7 +62,6 @@ class _AdminRequestsPageState extends ConsumerState<AdminRequestsPage> {
         const <String, String>{};
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Requests')),
       body: Column(
         children: [
           Padding(

@@ -4,4 +4,6 @@ export 'widgets/auth_splash.dart';
 export 'widgets/battery_bar.dart';
 export 'widgets/drone_map.dart';
 export 'widgets/item_picker.dart';
+export 'widgets/notification_bell.dart';
 export 'widgets/status_chip.dart';
+export 'widgets/weather_chip.dart';

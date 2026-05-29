@@ -18,7 +18,10 @@ final authStateProvider = StreamProvider<User?>((ref) {
 
 /// `users/{uid}` doc as a [UserProfile]. Retries up to ~4.4 s to tolerate the
 /// `onUserCreated` Auth trigger latency right after sign-up.
-final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
+///
+/// autoDispose so the cache drops the instant no widget listens — prevents
+/// the previous role's profile leaking into the next sign-in window.
+final userProfileProvider = FutureProvider.autoDispose<UserProfile?>((ref) async {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return null;
 

@@ -15,7 +15,6 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(userProfileProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile & Settings')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load: $e')),
@@ -185,6 +184,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     );
     if (confirm != true) return;
     await ref.read(authRepositoryProvider).signOut();
+    ref.invalidate(userProfileProvider);
     // Router redirect carries us back to /login.
   }
 

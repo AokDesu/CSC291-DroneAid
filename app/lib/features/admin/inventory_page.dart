@@ -58,7 +58,6 @@ class AdminInventoryPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(adminCatalogStreamProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Inventory')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddItemDialog(context),
         icon: const Icon(Icons.add),

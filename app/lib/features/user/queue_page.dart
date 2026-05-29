@@ -22,7 +22,6 @@ class QueuePage extends ConsumerWidget {
     final namesAsync = ref.watch(catalogNamesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your queue')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load: $e')),

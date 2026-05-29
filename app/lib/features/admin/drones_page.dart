@@ -72,7 +72,6 @@ class AdminDronesPage extends ConsumerWidget {
     final selected = ref.watch(_droneFilterProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Drones (P-A-03)')),
       body: Column(
         children: [
           _FilterBar(selected: selected),

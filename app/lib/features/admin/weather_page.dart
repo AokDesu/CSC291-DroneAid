@@ -59,7 +59,6 @@ class _AdminWeatherPageState extends ConsumerState<AdminWeatherPage> {
     final async = ref.watch(weatherStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Weather (P-A-06)')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load weather: $e')),

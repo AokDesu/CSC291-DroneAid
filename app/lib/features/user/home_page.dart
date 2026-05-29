@@ -40,7 +40,6 @@ class UserHomePage extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Request supplies')),
       body: catalogAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load catalog: $e')),
