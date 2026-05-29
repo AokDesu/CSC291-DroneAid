@@ -32,6 +32,9 @@ export { toggleCatalogActive } from "./callable/toggleCatalogActive";
 // ── Scheduled ───────────────────────────────────────────────────────────
 export { tickFlights } from "./scheduled/tickFlights";
 
+// ── Dev-only (emulator) ─────────────────────────────────────────────────
+export { devTickFlights } from "./callable/devTickFlights";
+
 // ── Triggers ────────────────────────────────────────────────────────────
 export { onUserCreated } from "./triggers/onUserCreated";
 export { onFlightWritten } from "./triggers/onFlightWritten";
