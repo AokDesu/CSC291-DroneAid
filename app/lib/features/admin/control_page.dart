@@ -1,18 +1,20 @@
 // P-A-05 Admin Control live map — "god view" of all active flights.
 // Spec: docs/09-page-flow-design.md §6 P-A-05.
 
+import 'dart:async';
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../core/dev_mode.dart';
 import '../../core/widgets/drone_map.dart';
 import '../../core/widgets/status_chip.dart';
 import '../user/tracking/flight_provider.dart';
 import '../user/tracking/interpolation.dart';
 import 'control/control_providers.dart';
+import 'drones/drone_providers.dart';
 
 const _base = LatLng(13.74, 100.54); // Bangkok warehouse fallback center
 const _functionsRegion = 'asia-southeast1';
@@ -27,6 +29,14 @@ class ControlPage extends ConsumerStatefulWidget {
 class _ControlPageState extends ConsumerState<ControlPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ticker;
+  Timer? _autoTickTimer;
+
+  /// Emulator suite doesn't fire scheduled triggers, so the production
+  /// 1-minute tickFlights cron never runs locally. While ControlPage is
+  /// mounted, drive the same loop via devTickFlights every 15 s so
+  /// returning drones land and flip back to `idle` without admin having
+  /// to mash the manual FAB.
+  static const _autoTickInterval = Duration(seconds: 15);
 
   @override
   void initState() {
@@ -35,32 +45,40 @@ class _ControlPageState extends ConsumerState<ControlPage>
         AnimationController(vsync: this, duration: const Duration(seconds: 1))
           ..repeat();
     _ticker.addListener(() => setState(() {}));
+    _autoTickTimer = Timer.periodic(
+      _autoTickInterval,
+      (_) => _tickNow(silent: true),
+    );
   }
 
   @override
   void dispose() {
+    _autoTickTimer?.cancel();
     _ticker.dispose();
     super.dispose();
   }
 
-  Future<void> _tickNow() async {
+  Future<void> _tickNow({bool silent = false}) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final fns = FirebaseFunctions.instanceFor(region: _functionsRegion);
       final result = await fns
           .httpsCallable('devTickFlights')
           .call<Map<String, dynamic>>();
+      if (silent) return;
       final count = (result.data['count'] as num?)?.toInt() ?? 0;
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text('Ticked $count active flight${count == 1 ? '' : 's'}.')),
       );
     } on FirebaseFunctionsException catch (e) {
+      if (silent) return;
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text('Tick failed: ${e.message ?? e.code}')),
       );
     } catch (e) {
+      if (silent) return;
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text('Tick failed: $e')));
     }
@@ -173,23 +191,46 @@ class _ControlPageState extends ConsumerState<ControlPage>
   @override
   Widget build(BuildContext context) {
     final flightsAsync = ref.watch(activeFlightsProvider);
+    final drones = ref.watch(adminDronesStreamProvider).valueOrNull ??
+        const <dynamic>[];
+
+    // Dedupe drone baseLocations to a ~5-decimal grid so floating-point
+    // noise from Firestore doesn't produce N near-identical pins. Retired
+    // drones don't contribute a hub.
+    final seenBases = <String>{};
+    final hubMarkers = <DroneMapMarker>[];
+    for (final d in drones) {
+      if (d.status == 'retired') continue;
+      final key =
+          '${d.baseLat.toStringAsFixed(5)},${d.baseLng.toStringAsFixed(5)}';
+      if (!seenBases.add(key)) continue;
+      hubMarkers.add(
+        DroneMapMarker(
+          id: 'hub-$key',
+          position: LatLng(d.baseLat, d.baseLng),
+          icon: const Icon(
+            Icons.warehouse_outlined,
+            color: Colors.blue,
+            size: 30,
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
-      floatingActionButton: kShowDevSurfaces
-          ? FloatingActionButton.extended(
-              key: const Key('dev-tick-now'),
-              onPressed: _tickNow,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Tick now'),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('dev-tick-now'),
+        onPressed: () => _tickNow(),
+        icon: const Icon(Icons.play_arrow),
+        label: const Text('Tick now'),
+      ),
       body: flightsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error loading flights: $e')),
         data: (flights) {
           final now = DateTime.now();
 
-          final markers = <DroneMapMarker>[
+          final flightMarkers = <DroneMapMarker>[
             for (final flight in flights)
               () {
                 final snap = flightSnapshot(
@@ -222,7 +263,12 @@ class _ControlPageState extends ConsumerState<ControlPage>
               }(),
           ];
 
-          final center = markers.isNotEmpty ? markers.first.position : _base;
+          // Hubs first so drone aircraft icons render on top.
+          final markers = <DroneMapMarker>[...hubMarkers, ...flightMarkers];
+
+          final center = flightMarkers.isNotEmpty
+              ? flightMarkers.first.position
+              : (hubMarkers.isNotEmpty ? hubMarkers.first.position : _base);
 
           return Stack(
             children: [
