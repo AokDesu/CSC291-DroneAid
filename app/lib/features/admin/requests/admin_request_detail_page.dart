@@ -237,15 +237,6 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'P-A-02 · MANAGE',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: _onFaint,
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,

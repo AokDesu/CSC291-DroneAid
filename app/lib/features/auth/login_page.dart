@@ -2,13 +2,13 @@
 // Layout + behaviour mirror docs/10-prototype-design.md §P-U-01.
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/dev_mode.dart';
 import '../../utils/thai_id_validator.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -154,7 +154,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: const Text('New here?  Create an account →'),
                 ),
                 const SizedBox(height: 32),
-                if (kDebugMode) const _DemoAccountsCard(),
+                if (kShowDevSurfaces) const _DemoAccountsCard(),
               ],
             ),
             ],

@@ -117,7 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
     ],
-    errorBuilder: (_, state) => _Placeholder('No route for ${state.uri.path}'),
+    errorBuilder: (_, __) => const _Placeholder(),
   );
 });
 
@@ -142,18 +142,17 @@ class _AuthListenable extends ChangeNotifier {
 }
 
 class _Placeholder extends StatelessWidget {
-  const _Placeholder(this.label);
-  final String label;
+  const _Placeholder();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('DroneAid (placeholder)')),
+      appBar: AppBar(title: const Text('Page not found')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            label,
+            "We couldn't find what you were looking for.",
             style: Theme.of(context).textTheme.headlineSmall,
             textAlign: TextAlign.center,
           ),

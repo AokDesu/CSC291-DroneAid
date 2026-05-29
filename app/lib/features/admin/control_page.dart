@@ -2,12 +2,12 @@
 // Spec: docs/09-page-flow-design.md §6 P-A-05.
 
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/dev_mode.dart';
 import '../../core/widgets/drone_map.dart';
 import '../../core/widgets/status_chip.dart';
 import '../user/tracking/flight_provider.dart';
@@ -119,7 +119,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
     final flightsAsync = ref.watch(activeFlightsProvider);
 
     return Scaffold(
-      floatingActionButton: kDebugMode
+      floatingActionButton: kShowDevSurfaces
           ? FloatingActionButton.extended(
               key: const Key('dev-tick-now'),
               onPressed: _tickNow,

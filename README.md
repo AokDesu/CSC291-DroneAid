@@ -176,6 +176,16 @@ Emulator UI at <http://127.0.0.1:4000>.
 
 The login page's debug-mode card mirrors this table for quick copy-paste.
 
+**User-acceptance test mode** — to drive the app exactly as a graded end user would (no demo-accounts card on login, no **Tick now** FAB on admin Control), pass `--dart-define=USER_MODE=true` through to Flutter:
+
+```bash
+bun scripts/dev.ts -- --dart-define=USER_MODE=true
+# or
+cd app && flutter run --dart-define=USER_MODE=true
+```
+
+Emulator wiring and Crashlytics overrides stay on, so the app still talks to the local Firebase emulators — only the user-visible dev surfaces are hidden.
+
 **Edit loop while `dev.ts` is running**:
 - Edit a `.dart` file → press `r` in the flutter terminal for hot reload (`R` for hot restart).
 - Edit a `.ts` file under `functions/src/` → tsc-watch rebuilds `lib/*.js` → the functions emulator auto-reloads. No manual restart needed.
