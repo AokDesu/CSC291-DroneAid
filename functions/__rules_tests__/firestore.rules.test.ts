@@ -15,10 +15,14 @@ import {
   assertFails,
 } from "@firebase/rules-unit-testing";
 import {
+  collectionGroup,
   doc,
   getDoc,
+  getDocs,
+  query,
   setDoc,
   updateDoc,
+  where,
   deleteDoc,
 } from "firebase/firestore";
 
@@ -262,6 +266,20 @@ describe("requests/{reqId}/reports/{reportId}", () => {
     assertFails(updateDoc(doc(admin(), "requests/req-mali/reports/rep-1"), {
       status: "resolved",
     })));
+
+  it("admin collectionGroup read succeeds", () =>
+    assertSucceeds(
+      getDocs(
+        query(collectionGroup(admin(), "reports"), where("status", "==", "open")),
+      ),
+    ));
+
+  it("user collectionGroup read denied", () =>
+    assertFails(
+      getDocs(
+        query(collectionGroup(mali(), "reports"), where("status", "==", "open")),
+      ),
+    ));
 });
 
 // ─── drones ───────────────────────────────────────────────────────────────

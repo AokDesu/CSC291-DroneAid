@@ -90,12 +90,24 @@ service cloud.firestore {
       // ─── requests/{reqId}/reports/{reportId} ────────────────────────────
       // Owner reads own request's reports; admin reads all. Writes only
       // through the reportDeliveryIssue callable (Admin SDK bypass).
+      // Note: this rule covers nested-path reads. The collectionGroup
+      // rule below grants admin the cross-Request queue read.
       match /reports/{reportId} {
         allow read: if isAdmin()
                     || (isSignedIn()
                         && get(/databases/$(database)/documents/requests/$(reqId)).data.userId == request.auth.uid);
         allow write: if false;
       }
+    }
+
+    // ─── collectionGroup('reports') ─────────────────────────────────────────
+    // Admin queue at /admin/reports issues a collectionGroup query against
+    // every `reports` subcollection. CollectionGroup access is checked
+    // against a {path=**} rule rather than the nested rule above, so the
+    // admin queue needs its own grant.
+    match /{path=**}/reports/{reportId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // ─── drones/{droneId} ───────────────────────────────────────────────────
