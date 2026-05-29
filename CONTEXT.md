@@ -37,6 +37,10 @@ _Avoid_: Accept, acknowledge, sign-off.
 A user with the `admin` role who approves/rejects Requests, assigns Drones, and (now) actions Reports. Single role tier — no separate fleet-operator vs support-agent split.
 _Avoid_: Operator, dispatcher, agent, moderator.
 
+**Hub**:
+An Admin's personal distribution-hub location, stored as `users/{adminUid}.hubLocation = {lat, lng, label?}`. Visual metadata only — does NOT affect drone dispatch origin, which is still each Drone's own `baseLocation`. Set via the same map pin picker used for user delivery addresses.
+_Avoid_: Base, depot, station, warehouse.
+
 **Recall**:
 Admin-initiated mid-flight termination. The Flight transitions to `returning`, the Request to `failed`, and the Drone heads home normally (it does not crash or enter maintenance). Two triggers: an admin pressing Recall on a specific Flight, or the system declaring `storm` weather, which evacuates every `enroute` Flight via the same transition. `delivering` Flights — drone already at destination, doing its 60s hold — are NOT recallable; the package can still be left.
 _Avoid_: Abort, cancel, force-return.

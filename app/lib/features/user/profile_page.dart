@@ -5,10 +5,15 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:latlong2/latlong.dart';
+
 import '../../core/auth/auth_providers.dart';
 import '../../core/auth/user_profile.dart';
 import '../../core/firebase_errors.dart';
+import '../../core/widgets/drone_map.dart';
 import '../../core/widgets/loading_placeholder.dart';
+import 'request/cart.dart' show DeliveryPin;
+import 'request/pin_picker.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -41,6 +46,9 @@ Map<String, dynamic> buildProfilePatch({
   required double? lat,
   required double? lng,
   required String label,
+  double? hubLat,
+  double? hubLng,
+  String hubLabel = '',
   required String theme,
   required bool notificationsEnabled,
 }) {
@@ -67,6 +75,25 @@ Map<String, dynamic> buildProfilePatch({
       patch['deliveryAddress'] = {
         'lat': lat,
         'lng': lng,
+        if (trimmedLabel.isNotEmpty) 'label': trimmedLabel,
+      };
+    }
+  }
+
+  if (hubLat != null && hubLng != null) {
+    final hub = initial.hubLocation;
+    final origLat = (hub?['lat'] as num?)?.toDouble();
+    final origLng = (hub?['lng'] as num?)?.toDouble();
+    final origLabel = (hub?['label'] as String?) ?? '';
+    final trimmedLabel = hubLabel.trim();
+    final changed = hub == null
+        || origLat != hubLat
+        || origLng != hubLng
+        || origLabel != trimmedLabel;
+    if (changed) {
+      patch['hubLocation'] = {
+        'lat': hubLat,
+        'lng': hubLng,
         if (trimmedLabel.isNotEmpty) 'label': trimmedLabel,
       };
     }
@@ -101,6 +128,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   late final TextEditingController _label;
   late String _theme;
   late bool _notificationsEnabled;
+  DeliveryPin? _hubPin;
   bool _saving = false;
   String? _serverError;
   String? _serverSuccess;
@@ -115,6 +143,18 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     _lat = TextEditingController(text: (addr?['lat'] as num?)?.toString() ?? '');
     _lng = TextEditingController(text: (addr?['lng'] as num?)?.toString() ?? '');
     _label = TextEditingController(text: (addr?['label'] as String?) ?? '');
+    final hub = p.hubLocation;
+    if (hub != null) {
+      final hLat = (hub['lat'] as num?)?.toDouble();
+      final hLng = (hub['lng'] as num?)?.toDouble();
+      if (hLat != null && hLng != null) {
+        _hubPin = DeliveryPin(
+          lat: hLat,
+          lng: hLng,
+          label: hub['label'] as String?,
+        );
+      }
+    }
     _theme = p.theme;
     _notificationsEnabled = p.notificationsEnabled;
   }
@@ -129,6 +169,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     super.dispose();
   }
 
+  Future<void> _pickHub() async {
+    final picked = await showPinPicker(
+      context,
+      initial: _hubPin,
+      title: 'Pick your hub location',
+      labelFieldLabel: 'Hub label (optional, e.g. "Warehouse A")',
+    );
+    if (picked == null) return;
+    setState(() => _hubPin = picked);
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
@@ -136,13 +187,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       _serverSuccess = null;
     });
 
+    final isAdmin = widget.initial.isAdmin;
     final patch = buildProfilePatch(
       initial: widget.initial,
       name: _name.text,
-      phone: _phone.text,
-      lat: double.tryParse(_lat.text.trim()),
-      lng: double.tryParse(_lng.text.trim()),
-      label: _label.text,
+      phone: isAdmin ? (widget.initial.phone ?? '') : _phone.text,
+      lat: isAdmin ? null : double.tryParse(_lat.text.trim()),
+      lng: isAdmin ? null : double.tryParse(_lng.text.trim()),
+      label: isAdmin ? '' : _label.text,
+      hubLat: _hubPin?.lat,
+      hubLng: _hubPin?.lng,
+      hubLabel: _hubPin?.label ?? '',
       theme: _theme,
       notificationsEnabled: _notificationsEnabled,
     );
@@ -210,6 +265,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isAdmin = widget.initial.isAdmin;
     return Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -228,67 +284,72 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phone,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone',
-                  border: OutlineInputBorder(),
+              if (!isAdmin) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: _validatePhone,
                 ),
-                validator: _validatePhone,
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
-          _SectionCard(
-            title: 'Delivery address',
-            subtitle:
-                'Enter coordinates for your delivery point. Or tap the map on the Home tab to drop a pin.',
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _lat,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
+          if (isAdmin)
+            _HubCard(pin: _hubPin, onPick: _pickHub)
+          else
+            _SectionCard(
+              title: 'Delivery address',
+              subtitle:
+                  'Enter coordinates for your delivery point. Or tap the map on the Home tab to drop a pin.',
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lat,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Latitude',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => _validateCoord(v, isLat: true),
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Latitude',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => _validateCoord(v, isLat: true),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _lng,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lng,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Longitude',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => _validateCoord(v, isLat: false),
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Longitude',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => _validateCoord(v, isLat: false),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _label,
-                decoration: const InputDecoration(
-                  labelText: 'Label (e.g. "Home")',
-                  border: OutlineInputBorder(),
+                  ],
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _label,
+                  decoration: const InputDecoration(
+                    labelText: 'Label (e.g. "Home")',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 12),
           _SectionCard(
             title: 'Preferences',
@@ -503,6 +564,85 @@ class _SectionCard extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HubCard extends StatelessWidget {
+  const _HubCard({required this.pin, required this.onPick});
+  final DeliveryPin? pin;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Hub', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Your distribution hub. Drop a pin where this account dispatches from.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            if (pin == null)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'No hub set yet',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 180,
+                  child: IgnorePointer(
+                    child: DroneMap(
+                      center: LatLng(pin!.lat, pin!.lng),
+                      zoom: 14,
+                      markers: [
+                        DroneMapMarker(
+                          id: 'hub',
+                          position: LatLng(pin!.lat, pin!.lng),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${pin!.lat.toStringAsFixed(5)}, ${pin!.lng.toStringAsFixed(5)}'
+                '${pin!.label != null && pin!.label!.isNotEmpty ? '  ·  ${pin!.label}' : ''}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('set-hub-button'),
+              onPressed: onPick,
+              icon: const Icon(Icons.place_outlined),
+              label: Text(pin == null ? 'Set hub' : 'Change hub'),
+            ),
           ],
         ),
       ),

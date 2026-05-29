@@ -1,5 +1,6 @@
-// C-13 MapPinPicker — modal route for picking a delivery pin on
-// flutter_map (OpenStreetMap tiles). Used by P-U-03 home/request page.
+// C-13 MapPinPicker — modal route for picking a pin on flutter_map
+// (OpenStreetMap tiles). Used by P-U-03 home/request page (delivery
+// pin) and by the admin Profile page (hub location).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -7,26 +8,39 @@ import 'package:latlong2/latlong.dart';
 
 import 'cart.dart';
 
-/// Bangkok central — sensible default when the user has no profile address.
+/// Bangkok central — sensible default when there's no prior pin.
 const _bangkokCenter = LatLng(13.7563, 100.5018);
 
 /// Push the picker as a full-screen modal route. Returns the chosen pin or
-/// null if the user backs out.
+/// null if the user backs out. Title + label-field hint are parameterised
+/// so callers can re-purpose this for non-delivery pins (e.g. admin Hub).
 Future<DeliveryPin?> showPinPicker(
   BuildContext context, {
   DeliveryPin? initial,
+  String title = 'Drop a delivery pin',
+  String labelFieldLabel = 'Label (optional, e.g. "Home")',
 }) {
   return Navigator.of(context).push<DeliveryPin>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => _PinPickerPage(initial: initial),
+      builder: (_) => _PinPickerPage(
+        initial: initial,
+        title: title,
+        labelFieldLabel: labelFieldLabel,
+      ),
     ),
   );
 }
 
 class _PinPickerPage extends StatefulWidget {
-  const _PinPickerPage({this.initial});
+  const _PinPickerPage({
+    this.initial,
+    required this.title,
+    required this.labelFieldLabel,
+  });
   final DeliveryPin? initial;
+  final String title;
+  final String labelFieldLabel;
 
   @override
   State<_PinPickerPage> createState() => _PinPickerPageState();
@@ -67,7 +81,7 @@ class _PinPickerPageState extends State<_PinPickerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Drop a delivery pin'),
+        title: Text(widget.title),
         actions: [
           TextButton(
             onPressed: _save,
@@ -120,9 +134,9 @@ class _PinPickerPageState extends State<_PinPickerPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _label,
-                  decoration: const InputDecoration(
-                    labelText: 'Label (optional, e.g. "Home")',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: widget.labelFieldLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],

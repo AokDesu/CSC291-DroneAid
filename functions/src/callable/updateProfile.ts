@@ -6,14 +6,17 @@ import { z } from "zod";
 import { db, FieldValue } from "../lib/admin";
 import { requireUser } from "../lib/roles";
 
+const PinSchema = z.object({
+  lat: z.number().gte(-90).lte(90),
+  lng: z.number().gte(-180).lte(180),
+  label: z.string().max(120).optional(),
+});
+
 const InputSchema = z.object({
   name: z.string().min(1).max(60).optional(),
   phone: z.string().regex(/^\+?\d{10,15}$/).optional(),
-  deliveryAddress: z.object({
-    lat: z.number().gte(-90).lte(90),
-    lng: z.number().gte(-180).lte(180),
-    label: z.string().max(120).optional(),
-  }).optional(),
+  deliveryAddress: PinSchema.optional(),
+  hubLocation: PinSchema.optional(),
   prefs: z.object({
     theme: z.enum(["system", "light", "dark"]).optional(),
     notificationsEnabled: z.boolean().optional(),
@@ -32,6 +35,7 @@ export const updateProfile = onCall(async (req) => {
   if (payload.name !== undefined) patch.name = payload.name;
   if (payload.phone !== undefined) patch.phone = payload.phone;
   if (payload.deliveryAddress !== undefined) patch.deliveryAddress = payload.deliveryAddress;
+  if (payload.hubLocation !== undefined) patch.hubLocation = payload.hubLocation;
   if (payload.prefs !== undefined) patch.prefs = payload.prefs;
   if (payload.fcmToken !== undefined) patch.fcmTokens = FieldValue.arrayUnion(payload.fcmToken);
 

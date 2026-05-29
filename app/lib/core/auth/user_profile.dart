@@ -12,6 +12,7 @@ class UserProfile {
     required this.role,
     required this.locked,
     this.deliveryAddress,
+    this.hubLocation,
     this.prefs,
   });
 
@@ -22,6 +23,7 @@ class UserProfile {
   final String role;
   final bool locked;
   final Map<String, dynamic>? deliveryAddress;
+  final Map<String, dynamic>? hubLocation;
   final Map<String, dynamic>? prefs;
 
   bool get isAdmin => role == 'admin';
@@ -39,6 +41,7 @@ class UserProfile {
       role: (data['role'] as String?) ?? 'user',
       locked: (data['locked'] as bool?) ?? false,
       deliveryAddress: (data['deliveryAddress'] as Map?)?.cast<String, dynamic>(),
+      hubLocation: (data['hubLocation'] as Map?)?.cast<String, dynamic>(),
       prefs: (data['prefs'] as Map?)?.cast<String, dynamic>(),
     );
   }

@@ -88,8 +88,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/admin/drones',    builder: (_, __) => const AdminDronesPage()),
           GoRoute(path: '/admin/control',   builder: (_, __) => const ControlPage()),
           GoRoute(path: '/admin/weather',   builder: (_, __) => const AdminWeatherPage()),
-          GoRoute(path: '/admin/inventory', builder: (_, __) => const AdminInventoryPage()),
-          GoRoute(path: '/admin/profile',   builder: (_, __) => const ProfilePage()),
+          GoRoute(path: '/admin/inventory',     builder: (_, __) => const AdminInventoryPage()),
+          GoRoute(path: '/admin/notifications', builder: (_, __) => const NotificationsPage()),
+          GoRoute(path: '/admin/profile',       builder: (_, __) => const ProfilePage()),
         ],
       ),
 
