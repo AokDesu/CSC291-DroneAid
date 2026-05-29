@@ -52,7 +52,26 @@ export const confirmDelivery = onCall(async (req) => {
     if (r.status === "delivered") {
       tx.update(reqRef, { status: "confirmed", decidedAt: Timestamp.now() });
       if (flightRef && flightSnap?.exists) {
-        tx.update(flightRef, { status: "returning", returningStartedAt: Timestamp.now() });
+        // Drone has been at the destination through the delivering hold —
+        // its battery is the outbound-trip battery at progress=1.0.
+        const f = flightSnap.data() ?? {};
+        const arrivalSnap = snapshot(
+          {
+            origin: f.origin,
+            destination: f.destination,
+            takeoffAt: (f.takeoffAt as FirebaseFirestore.Timestamp).toMillis(),
+            speedKmh: f.speedKmh as number,
+            weatherModifierAtTakeoff: f.weatherModifierAtTakeoff as number,
+            batteryAtTakeoff: f.batteryAtTakeoff as number,
+          },
+          nowMs,
+          weather,
+        );
+        tx.update(flightRef, {
+          status: "returning",
+          returningStartedAt: Timestamp.now(),
+          batteryAtReturnStart: arrivalSnap.battery,
+        });
       }
       return;
     }
@@ -83,7 +102,11 @@ export const confirmDelivery = onCall(async (req) => {
       // Collapse delivered+confirmed into one transition. Skip the 60s
       // delivering hold — the user has explicitly acknowledged receipt.
       tx.update(reqRef, { status: "confirmed", decidedAt: Timestamp.now() });
-      tx.update(flightRef, { status: "returning", returningStartedAt: Timestamp.now() });
+      tx.update(flightRef, {
+        status: "returning",
+        returningStartedAt: Timestamp.now(),
+        batteryAtReturnStart: snap.battery,
+      });
       return;
     }
 

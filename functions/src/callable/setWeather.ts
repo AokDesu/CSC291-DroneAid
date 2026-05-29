@@ -12,6 +12,7 @@ import { db, FieldValue } from "../lib/admin";
 import { requireAdmin } from "../lib/roles";
 import { recallFlightTx } from "../lib/flights";
 import { sendToUser } from "../lib/fcm";
+import { snapshot } from "../lib/sim";
 
 const InputSchema = z.object({
   state: z.enum(["clear", "wind", "storm"]),
@@ -53,11 +54,22 @@ async function stormEvacuate(): Promise<void> {
       // Re-check inside the transaction — another tick may have already
       // moved the flight past enroute (e.g. delivering, or failed).
       if (r.status !== "enroute") return;
+      const flightState = {
+        origin: r.origin as { lat: number; lng: number },
+        destination: r.destination as { lat: number; lng: number },
+        takeoffAt: (r.takeoffAt as FirebaseFirestore.Timestamp).toMillis(),
+        speedKmh: r.speedKmh as number,
+        weatherModifierAtTakeoff: r.weatherModifierAtTakeoff as number,
+        batteryAtTakeoff: r.batteryAtTakeoff as number,
+      };
+      // Weather just flipped to "storm" — use that for the snapshot.
+      const currentSnap = snapshot(flightState, nowMs, "storm");
       recallFlightTx(tx, {
         flightId: doc.id,
         droneId: r.droneId as string,
         requestId: r.requestId as string,
         nowMs,
+        batteryAtReturnStart: currentSnap.battery,
       });
     });
     if (f.userId) {

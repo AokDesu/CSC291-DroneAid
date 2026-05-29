@@ -96,19 +96,29 @@ export async function tickAllFlights(nowMs: number = Date.now()): Promise<{ coun
         });
         continue;
       }
-      // Reuse snapshot math by swapping origin/destination since we're heading home.
-      const back = snapshot(
-        { ...flightState, takeoffAt: returningStartedAt, origin: f.destination, destination: f.origin },
-        nowMs,
-        weather,
-      );
+      // Reuse snapshot math by swapping origin/destination since we're
+      // heading home. `batteryAtReturnStart` is persisted by every path
+      // that transitions a flight to `returning` (confirmDelivery + the
+      // recallFlightTx helper). Falling back to the original
+      // `batteryAtTakeoff` keeps pre-patch in-flight returns drivable but
+      // reproduces the old over-credit bug for them.
+      const returnState = {
+        ...flightState,
+        takeoffAt: returningStartedAt,
+        origin: f.destination,
+        destination: f.origin,
+        batteryAtTakeoff:
+          (f.batteryAtReturnStart as number | undefined) ??
+          (f.batteryAtTakeoff as number),
+      };
+      const back = snapshot(returnState, nowMs, weather);
       if (back.progress >= 1.0) {
         await db.runTransaction(async (tx) => {
           tx.update(doc.ref, { status: "completed", archived: true });
           tx.update(db.doc(`drones/${droneId}`), {
             status: "idle",
             currentFlightId: null,
-            batteryPct: Math.max(0, Math.floor(snap.battery)),
+            batteryPct: Math.max(0, Math.floor(back.battery)),
           });
         });
       }

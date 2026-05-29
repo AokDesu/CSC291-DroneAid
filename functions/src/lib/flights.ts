@@ -25,6 +25,10 @@ export function recallFlightTx(
     droneId: string;
     requestId: string;
     nowMs: number;
+    /// Drone battery at the moment of recall. The tick loop uses this as
+    /// the starting battery for the return-trip snapshot so it doesn't
+    /// re-credit the outbound-leg drain.
+    batteryAtReturnStart: number;
   },
 ): void {
   const flightRef = db.doc(`flights/${args.flightId}`);
@@ -32,6 +36,7 @@ export function recallFlightTx(
   tx.update(flightRef, {
     status: "returning",
     returningStartedAt: Timestamp.fromMillis(args.nowMs),
+    batteryAtReturnStart: args.batteryAtReturnStart,
     recalled: true,
   });
   tx.update(requestRef, {
