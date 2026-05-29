@@ -1459,7 +1459,9 @@ class _OutcomeRadio extends StatelessWidget {
           children: [
             Radio<ReportResolution>(
               value: value,
+              // ignore: deprecated_member_use
               groupValue: groupValue,
+              // ignore: deprecated_member_use
               onChanged: onChanged,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
