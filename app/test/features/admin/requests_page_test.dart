@@ -20,24 +20,34 @@ void main() {
       expect(statusMatchesFilter('approved', AdminRequestFilter.pending), isFalse);
     });
 
-    test('Approved includes "approved" + "assigned"', () {
-      expect(statusMatchesFilter('approved', AdminRequestFilter.approved), isTrue);
-      expect(statusMatchesFilter('assigned', AdminRequestFilter.approved), isTrue);
-    });
-
-    test('Completed includes confirmed + delivered + completed', () {
-      for (final s in ['completed', 'confirmed', 'delivered']) {
+    test('In flight covers approved + assigned + in_flight', () {
+      for (final s in ['approved', 'assigned', 'in_flight']) {
         expect(
-          statusMatchesFilter(s, AdminRequestFilter.completed),
+          statusMatchesFilter(s, AdminRequestFilter.inFlight),
           isTrue,
           reason: s,
         );
       }
     });
 
-    test('Aborted includes failed', () {
-      expect(statusMatchesFilter('failed', AdminRequestFilter.aborted), isTrue);
-      expect(statusMatchesFilter('aborted', AdminRequestFilter.aborted), isTrue);
+    test('Delivered includes confirmed + delivered + completed', () {
+      for (final s in ['completed', 'confirmed', 'delivered']) {
+        expect(
+          statusMatchesFilter(s, AdminRequestFilter.delivered),
+          isTrue,
+          reason: s,
+        );
+      }
+    });
+
+    test('Failed covers rejected + cancelled + aborted + failed', () {
+      for (final s in ['rejected', 'cancelled', 'aborted', 'failed']) {
+        expect(
+          statusMatchesFilter(s, AdminRequestFilter.failed),
+          isTrue,
+          reason: s,
+        );
+      }
     });
   });
 

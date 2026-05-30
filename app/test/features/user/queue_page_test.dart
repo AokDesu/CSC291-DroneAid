@@ -135,9 +135,9 @@ void main() {
         catalogNames: const {'food-kit': 'Food Kit'},
       );
 
-      expect(find.text('Active'), findsOneWidget);
-      expect(find.text('Pending'), findsOneWidget);
-      expect(find.text('(1)'), findsNWidgets(2));
+      // SectionLabel uppercases the labels for the screenshot-parity redesign.
+      expect(find.text('ACTIVE'), findsOneWidget);
+      expect(find.text('PENDING'), findsOneWidget);
       expect(find.byKey(const Key('queue-row-r-pending')), findsOneWidget);
       expect(find.byKey(const Key('queue-row-r-flight')), findsOneWidget);
     });

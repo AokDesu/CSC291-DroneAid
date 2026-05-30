@@ -88,6 +88,13 @@ void main() {
       expect(find.byKey(const Key('weather-storm-warning')), findsOneWidget);
       expect(find.textContaining('Storm immediately recalls'), findsOneWidget);
 
+      // Save button is below the fold after the storm warning expands;
+      // scroll it into view before inspecting its onPressed state.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('weather-save')),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
       final btn = tester.widget<FilledButton>(
         find.byKey(const Key('weather-save')),
       );

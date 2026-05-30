@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/theme_extensions.dart';
+import '../../core/tokens.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/section_label.dart';
 import 'weather/weather.dart';
 import 'weather/weather_providers.dart';
 
@@ -123,63 +127,87 @@ class _Body extends StatelessWidget {
     final saveEnabled = !saving && canSave(draft: draft, current: weather.state);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Current state',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+        const PageHeader(
+          eyebrow: 'P-A-06 · WEATHER',
+          title: 'Weather',
+          subtitle:
+              'Affects speed, battery drain, and abort risk for all in-flight drones.',
+        ),
+        const SectionLabel('CURRENT STATE'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color:
+                          theme.colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadii.chip),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _iconFor(weather.state),
+                          size: 16,
+                          color: theme.colorScheme.primary,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        weatherLabel(weather.state),
-                        key: const Key('weather-current-label'),
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _updatedLine(weather),
-                        key: const Key('weather-updated-line'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 6),
+                        Text(
+                          weatherLabel(weather.state),
+                          key: const Key('weather-current-label'),
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    _updatedLine(weather),
+                    key: const Key('weather-updated-line'),
+                    style: context.appText.mono,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        Text('Set state', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        RadioGroup<String>(
-          groupValue: draft,
-          onChanged: (v) {
-            if (saving || v == null) return;
-            onPick(v);
-          },
-          child: Column(
-            children: [
-              for (final opt in weatherOptions)
-                RadioListTile<String>(
-                  key: Key('weather-option-${opt.state}'),
-                  value: opt.state,
-                  title: Text(opt.label),
-                  subtitle: Text(opt.detail),
-                ),
-            ],
+        const SectionLabel('SET STATE'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Card(
+            child: RadioGroup<String>(
+              groupValue: draft,
+              onChanged: (v) {
+                if (saving || v == null) return;
+                onPick(v);
+              },
+              child: Column(
+                children: [
+                  for (var i = 0; i < weatherOptions.length; i++) ...[
+                    RadioListTile<String>(
+                      key: Key('weather-option-${weatherOptions[i].state}'),
+                      value: weatherOptions[i].state,
+                      title: Text(weatherOptions[i].label),
+                      subtitle: Text(weatherOptions[i].detail),
+                    ),
+                    if (i < weatherOptions.length - 1)
+                      const Divider(height: 1),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
         if (draft == 'storm')
@@ -207,23 +235,39 @@ class _Body extends StatelessWidget {
               ],
             ),
           ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            key: const Key('weather-save'),
-            onPressed: saveEnabled ? onSave : null,
-            child: saving
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+        const SizedBox(height: AppSpacing.md),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const Key('weather-save'),
+              onPressed: saveEnabled ? onSave : null,
+              child: saving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save'),
+            ),
           ),
         ),
+        const SizedBox(height: AppSpacing.xl),
       ],
     );
+  }
+
+  IconData _iconFor(String state) {
+    switch (state) {
+      case 'storm':
+        return Icons.thunderstorm;
+      case 'wind':
+        return Icons.air;
+      case 'clear':
+      default:
+        return Icons.wb_sunny;
+    }
   }
 
   String _updatedLine(Weather w) {

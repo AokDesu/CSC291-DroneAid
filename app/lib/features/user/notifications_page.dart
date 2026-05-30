@@ -8,8 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/firebase_errors.dart';
+import '../../core/theme_extensions.dart';
+import '../../core/tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/loading_placeholder.dart';
+import '../../core/widgets/page_header.dart';
 import 'notifications/notifications_provider.dart';
 import 'request/app_request.dart' show relativeTime;
 
@@ -84,32 +87,39 @@ class NotificationsPage extends ConsumerWidget {
         loading: () => const LoadingPlaceholder(label: 'Loading notifications…'),
         error: (e, _) => Center(child: Text('Failed to load notifications: ${describeFunctionsError(e)}')),
         data: (notifications) {
-          if (notifications.isEmpty) {
-            return const EmptyState(
-              icon: Icons.notifications_none,
-              title: 'No notifications yet',
-              helper: 'Updates about your drone deliveries will show up here.',
-            );
-          }
           final hasUnread = notifications.any((n) => n.isUnread);
+          final unreadCount = notifications.where((n) => n.isUnread).length;
           return Column(
             children: [
-              if (hasUnread)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      key: const Key('mark-all-read'),
-                      onPressed: () =>
-                          _markAllRead(context, uid, notifications),
-                      icon: const Icon(Icons.done_all),
-                      label: const Text('Mark all as read'),
-                    ),
+              PageHeader(
+                eyebrow: 'P-U-08 · INBOX',
+                title: 'Notifications',
+                subtitle: unreadCount == 0
+                    ? 'No unread messages.'
+                    : '$unreadCount unread.',
+                trailing: hasUnread
+                    ? TextButton.icon(
+                        key: const Key('mark-all-read'),
+                        onPressed: () =>
+                            _markAllRead(context, uid, notifications),
+                        icon: const Icon(Icons.done_all, size: 16),
+                        label: const Text('Mark all'),
+                      )
+                    : null,
+              ),
+              if (notifications.isEmpty)
+                const Expanded(
+                  child: EmptyState(
+                    icon: Icons.notifications_none,
+                    title: 'No notifications yet',
+                    helper:
+                        'Updates about your drone deliveries will show up here.',
                   ),
-                ),
+                )
+              else
               Expanded(
                 child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                   itemCount: notifications.length,
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, i) {
@@ -139,7 +149,7 @@ class NotificationsPage extends ConsumerWidget {
                           ),
                           Text(
                             relativeTime(n.createdAt),
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: context.appText.mono,
                           ),
                         ],
                       ),

@@ -1,5 +1,6 @@
 // P-U-03 Home / Request — browse catalog, build a cart, drop a pin, submit.
 // Spec: docs/09-page-flow-design.md §5 P-U-03.
+// Visual: docs/prototype-screens/user/P-U-03_request.png.
 // Backend: submitRequest callable in functions/src/callable/submitRequest.ts.
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -8,8 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/theme_extensions.dart';
+import '../../core/tokens.dart';
+import '../../core/widgets/category_icon_tile.dart';
 import '../../core/widgets/loading_placeholder.dart';
-import '../admin/inventory/catalog_icons.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/section_label.dart';
+import '../../core/widgets/weight_bar.dart';
 import 'request/cart.dart';
 import 'request/catalog.dart';
 import 'request/pin_picker.dart';
@@ -59,38 +65,71 @@ class UserHomePage extends ConsumerWidget {
           }
           final totalKg = cartTotalWeightKg(cart, catalog);
           return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.zero,
             children: [
-              Text(
-                'Pick what you need, drop a pin.',
-                style: Theme.of(context).textTheme.bodyMedium,
+              const PageHeader(
+                eyebrow: 'P-U-03 · REQUEST',
+                title: 'Request supplies',
+                subtitle: 'Pick what you need, drop a pin, send a drone.',
               ),
-              const SizedBox(height: 12),
-              for (final entry in catalog)
-                _CatalogRow(
-                  entry: entry,
-                  qty: cart.lines[entry.id] ?? 0,
-                  onChanged: (q) =>
-                      ref.read(cartProvider.notifier).setQty(entry.id, q),
+              const SectionLabel('CATALOG'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: Card(
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < catalog.length; i++) ...[
+                        _CatalogRow(
+                          entry: catalog[i],
+                          qty: cart.lines[catalog[i].id] ?? 0,
+                          onChanged: (q) => ref
+                              .read(cartProvider.notifier)
+                              .setQty(catalog[i].id, q),
+                        ),
+                        if (i < catalog.length - 1) const Divider(height: 1),
+                      ],
+                    ],
+                  ),
                 ),
-              const SizedBox(height: 20),
-              _CartSection(
-                cart: cart,
-                catalog: catalog,
-                onRemove: (id) =>
-                    ref.read(cartProvider.notifier).remove(id),
               ),
-              const SizedBox(height: 12),
-              _WeightBar(totalKg: totalKg),
-              const SizedBox(height: 16),
+              if (!cart.isEmpty) ...[
+                const SectionLabel('CART'),
+                _CartSection(
+                  cart: cart,
+                  catalog: catalog,
+                  onRemove: (id) =>
+                      ref.read(cartProvider.notifier).remove(id),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    0,
+                  ),
+                  child: WeightBar(currentKg: totalKg, maxKg: maxPayloadKg),
+                ),
+              ],
+              const SectionLabel('DELIVERY PIN'),
               _PinSection(pin: cart.pin),
-              const SizedBox(height: 24),
-              _SubmitSection(
-                cart: cart,
-                totalKg: totalKg,
-                pin: cart.pin,
+              const SectionLabel('PRIORITY'),
+              _PriorityToggle(
+                value: cart.priority,
+                onChanged: (v) =>
+                    ref.read(cartProvider.notifier).setPriority(v),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.lg),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                ),
+                child: _SubmitSection(
+                  cart: cart,
+                  totalKg: totalKg,
+                  pin: cart.pin,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
             ],
           );
         },
@@ -100,7 +139,7 @@ class UserHomePage extends ConsumerWidget {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// Catalog row with inline qty stepper.
+// Catalog row — tinted icon tile + bold name + mono detail line + circle +.
 // ────────────────────────────────────────────────────────────────────────
 
 class _CatalogRow extends StatelessWidget {
@@ -119,44 +158,89 @@ class _CatalogRow extends StatelessWidget {
     final theme = Theme.of(context);
     final disabled = entry.outOfStock;
     final canAdd = !disabled && qty < entry.stock && qty < maxQtyPerLine;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(child: Icon(resolveCatalogIcon(entry.icon))),
-        title: Text(
-          entry.name,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: disabled ? theme.disabledColor : null,
+    final monoStrong = context.appText.mono;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: 10,
+      ),
+      child: Row(
+        children: [
+          CategoryIconTile(catalogId: entry.id),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.name,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: disabled ? theme.disabledColor : null,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  disabled
+                      ? 'Out of stock'
+                      : '${entry.weightKg.toStringAsFixed(1)} kg · ${entry.stock} in stock',
+                  style: monoStrong,
+                ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Text(
-          disabled
-              ? 'Out of stock'
-              : '${entry.weightKg.toStringAsFixed(1)} kg   ${entry.stock} in stock',
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          if (qty > 0) ...[
             IconButton(
               key: Key('dec-${entry.id}'),
               icon: const Icon(Icons.remove_circle_outline),
-              onPressed: qty > 0 ? () => onChanged(qty - 1) : null,
+              onPressed: () => onChanged(qty - 1),
+              tooltip: 'Remove one',
             ),
             SizedBox(
-              width: 24,
+              width: 22,
               child: Text(
                 '$qty',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleMedium,
               ),
             ),
-            IconButton(
-              key: Key('inc-${entry.id}'),
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: canAdd ? () => onChanged(qty + 1) : null,
-            ),
           ],
+          _AddButton(
+            inkKey: Key('inc-${entry.id}'),
+            onPressed: canAdd ? () => onChanged(qty + 1) : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.inkKey, required this.onPressed});
+  final Key inkKey;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final disabled = onPressed == null;
+    final fg = disabled
+        ? t.colorScheme.onSurface.withValues(alpha: 0.35)
+        : t.colorScheme.onSurface;
+    final borderColor = t.dividerColor;
+    return InkResponse(
+      key: inkKey,
+      onTap: onPressed,
+      radius: 24,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: borderColor),
         ),
+        child: Icon(Icons.add, size: 18, color: fg),
       ),
     );
   }
@@ -180,87 +264,39 @@ class _CartSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (cart.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text('Cart is empty.', style: theme.textTheme.bodyMedium),
-      );
-    }
     final byId = {for (final c in catalog) c.id: c};
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Cart', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        for (final entry in cart.lines.entries)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              '${byId[entry.key]?.name ?? entry.key} ×${entry.value}',
-              style: theme.textTheme.bodyLarge,
-            ),
-            trailing: IconButton(
-              key: Key('remove-${entry.key}'),
-              icon: const Icon(Icons.close),
-              onPressed: () => onRemove(entry.key),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// Weight bar (C-11). Pure visual; canSubmit() does the gate.
-// ────────────────────────────────────────────────────────────────────────
-
-class _WeightBar extends StatelessWidget {
-  const _WeightBar({required this.totalKg});
-  final double totalKg;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final over = totalKg > maxPayloadKg;
-    final pct = (totalKg / maxPayloadKg).clamp(0.0, 1.0);
-    final color = over ? theme.colorScheme.error : theme.colorScheme.primary;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(
+        child: Column(
           children: [
-            Text('Weight', style: theme.textTheme.bodyMedium),
-            const Spacer(),
-            Text(
-              '${totalKg.toStringAsFixed(1)} / ${maxPayloadKg.toStringAsFixed(1)} kg',
-              style: theme.textTheme.bodyMedium?.copyWith(color: color),
-            ),
+            for (var i = 0; i < cart.lines.length; i++) ...[
+              () {
+                final entry = cart.lines.entries.elementAt(i);
+                return ListTile(
+                  dense: true,
+                  title: Text(
+                    '${byId[entry.key]?.name ?? entry.key} ×${entry.value}',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  trailing: IconButton(
+                    key: Key('remove-${entry.key}'),
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => onRemove(entry.key),
+                  ),
+                );
+              }(),
+              if (i < cart.lines.length - 1) const Divider(height: 1),
+            ],
           ],
         ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: pct,
-            minHeight: 8,
-            valueColor: AlwaysStoppedAnimation(color),
-          ),
-        ),
-        if (over) ...[
-          const SizedBox(height: 4),
-          Text(
-            'Total exceeds drone payload.',
-            style: theme.textTheme.bodySmall?.copyWith(color: color),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// Delivery pin section + Edit button (C-13).
+// Delivery pin card.
 // ────────────────────────────────────────────────────────────────────────
 
 class _PinSection extends ConsumerWidget {
@@ -269,36 +305,149 @@ class _PinSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final label = pin == null
-        ? 'Not set'
-        : '${pin!.lat.toStringAsFixed(5)}, ${pin!.lng.toStringAsFixed(5)}'
-            '${pin!.label != null ? '  (${pin!.label})' : ''}';
-    return Row(
-      children: [
-        const Icon(Icons.place_outlined),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final t = Theme.of(context);
+    final mono = context.appText.mono;
+    final title = pin?.label ?? (pin == null ? 'Not set' : 'Custom pin');
+    final coords = pin == null
+        ? 'Tap Edit to drop a pin.'
+        : '${pin!.lat.toStringAsFixed(4)}, ${pin!.lng.toStringAsFixed(4)}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm + 4,
+          ),
+          child: Row(
             children: [
-              Text('Delivery pin', style: theme.textTheme.bodyMedium),
-              Text(label, style: theme.textTheme.bodyLarge),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: t.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadii.iconTile),
+                ),
+                child: Icon(
+                  Icons.place_outlined,
+                  color: t.colorScheme.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: t.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(coords, style: mono),
+                  ],
+                ),
+              ),
+              TextButton.icon(
+                key: const Key('edit-pin'),
+                onPressed: () async {
+                  final picked = await showPinPicker(context, initial: pin);
+                  if (picked != null) {
+                    ref.read(cartProvider.notifier).setPin(picked);
+                  }
+                },
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit'),
+              ),
             ],
           ),
         ),
-        TextButton.icon(
-          key: const Key('edit-pin'),
-          onPressed: () async {
-            final picked = await showPinPicker(context, initial: pin);
-            if (picked != null) {
-              ref.read(cartProvider.notifier).setPin(picked);
-            }
-          },
-          icon: const Icon(Icons.edit_location_alt_outlined),
-          label: const Text('Edit'),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Priority pill toggle (Normal / Urgent).
+// ────────────────────────────────────────────────────────────────────────
+
+class _PriorityToggle extends StatelessWidget {
+  const _PriorityToggle({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final status = context.statusColors;
+
+    Widget pill({
+      required String id,
+      required String label,
+      IconData? icon,
+      required Color selectedBg,
+      required Color selectedFg,
+    }) {
+      final selected = value == id;
+      final bg = selected
+          ? selectedBg
+          : t.colorScheme.surface;
+      final fg = selected ? selectedFg : t.colorScheme.onSurface;
+      final border = selected ? selectedBg : t.dividerColor;
+      return Expanded(
+        child: InkWell(
+          onTap: () => onChanged(id),
+          borderRadius: BorderRadius.circular(AppRadii.chip),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: bg,
+              border: Border.all(color: border, width: 1.2),
+              borderRadius: BorderRadius.circular(AppRadii.chip),
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 16, color: fg),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ],
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Row(
+        children: [
+          pill(
+            id: 'normal',
+            label: 'Normal',
+            selectedBg: const Color(0xFFB5E8DF),
+            selectedFg: const Color(0xFF0E3B38),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          pill(
+            id: 'urgent',
+            label: 'Urgent',
+            icon: Icons.warning_amber_outlined,
+            selectedBg: status.urgentBg,
+            selectedFg: status.urgentFg,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -372,6 +521,9 @@ class _SubmitSectionState extends ConsumerState<_SubmitSection> {
           totalWeightKg: widget.totalKg,
           pinSet: widget.pin != null,
         );
+    final label = widget.cart.isEmpty
+        ? 'Add items to submit'
+        : 'Submit request';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -384,7 +536,7 @@ class _SubmitSectionState extends ConsumerState<_SubmitSection> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Submit request'),
+              : Text(label),
         ),
         if (_helperText != null) ...[
           const SizedBox(height: 6),

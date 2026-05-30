@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/tokens.dart';
+import '../../core/widgets/page_header.dart';
 import '../reports/report.dart';
 import '../reports/reports_providers.dart';
 import 'requests/admin_requests_provider.dart';
@@ -33,23 +35,31 @@ class AdminReportsPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load reports: $e')),
         data: (reports) {
-          if (reports.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'No open reports right now.',
-                  textAlign: TextAlign.center,
-                ),
+          return ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              PageHeader(
+                eyebrow: 'P-A-REPORTS · OPEN',
+                title: 'Reports',
+                subtitle: reports.isEmpty
+                    ? 'Nothing pending.'
+                    : '${reports.length} open · awaiting decision.',
               ),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: reports.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 4),
-            itemBuilder: (_, i) =>
-                _ReportRow(report: reports[i], userNames: names),
+              if (reports.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: Text(
+                      'No open reports right now.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              else
+                for (final r in reports)
+                  _ReportRow(report: r, userNames: names),
+              const SizedBox(height: AppSpacing.xl),
+            ],
           );
         },
       ),
@@ -69,15 +79,19 @@ class _ReportRow extends StatelessWidget {
     final name = userNames[report.uid] ?? report.uid;
     final age = relativeAge(report.createdAt);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        key: Key('report-row-${report.id}'),
-        onTap: () => context.go('/admin/requests/${report.requestId}'),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm,
+      ),
+      child: Card(
+        child: InkWell(
+          key: Key('report-row-${report.id}'),
+          onTap: () => context.go('/admin/requests/${report.requestId}'),
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
@@ -124,6 +138,7 @@ class _ReportRow extends StatelessWidget {
                 ],
               ),
             ],
+            ),
           ),
         ),
       ),

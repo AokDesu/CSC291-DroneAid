@@ -1,24 +1,23 @@
 // P-A-03 Admin Drone list.
 // Spec: docs/09-page-flow-design.md §6 P-A-03.
+// Visual: docs/prototype-screens/admin/P-A-03_drones.png.
 // Backend: read-only stream of `drones` collection (rules: read any signed-in,
 // writes go through toggleDroneMaintenance + tickFlights).
-//
-// Out of scope this PR: ETA footer for flying drones (needs flight join).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme_extensions.dart';
+import '../../core/tokens.dart';
 import '../../core/widgets/battery_bar.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/error_retry.dart';
+import '../../core/widgets/page_header.dart';
 import 'drones/drone.dart';
 import 'drones/drone_dialogs.dart';
 import 'drones/drone_providers.dart';
 
-/// Canonical filter set. Empty selection means "All" — but retired drones
-/// are still hidden unless the `retired` chip is explicitly selected (see
-/// `applyDroneFilter`).
 const _statusFilters = <String>[
   'idle',
   'flying',
@@ -27,23 +26,46 @@ const _statusFilters = <String>[
   'retired',
 ];
 
-/// Per-status display color. Mirrors the prototype palette (P-A-03 doc).
-/// Kept inline rather than extending StatusChip — Belle's widget API is
-/// frozen (#23 / ADR-0003), and request statuses use a different palette.
-Color droneStatusColor(String status, ColorScheme scheme) {
+class _DroneStatusPalette {
+  const _DroneStatusPalette({required this.bg, required this.fg});
+  final Color bg;
+  final Color fg;
+}
+
+_DroneStatusPalette droneStatusPalette(String status, AppStatusColors p) {
   switch (status) {
     case 'idle':
-      return Colors.green;
+      return _DroneStatusPalette(bg: p.confirmedBg, fg: p.confirmedFg);
+    case 'flying':
+      return _DroneStatusPalette(bg: p.approvedBg, fg: p.approvedFg);
+    case 'maintenance':
+      return _DroneStatusPalette(bg: p.deliveredBg, fg: p.deliveredFg);
+    case 'offline':
+      return _DroneStatusPalette(bg: p.cancelledBg, fg: p.cancelledFg);
+    case 'retired':
+      return _DroneStatusPalette(bg: p.cancelledBg, fg: p.cancelledFg);
+    default:
+      return _DroneStatusPalette(bg: p.cancelledBg, fg: p.cancelledFg);
+  }
+}
+
+@Deprecated('Use droneStatusPalette via AppStatusColors ThemeExtension.')
+Color droneStatusColor(String status, ColorScheme scheme) {
+  // Back-compat shim. Returns a vaguely correct color for any caller still
+  // relying on the old API (widget tests reference it).
+  switch (status) {
+    case 'idle':
+      return const Color(0xFF2D8C7F);
     case 'flying':
       return scheme.primary;
     case 'maintenance':
-      return Colors.amber.shade700;
+      return const Color(0xFFE0A816);
     case 'offline':
-      return Colors.grey;
+      return const Color(0xFF5B6470);
     case 'retired':
-      return Colors.blueGrey.shade400;
+      return const Color(0xFF8B92A0);
     default:
-      return Colors.grey;
+      return const Color(0xFF5B6470);
   }
 }
 
@@ -64,8 +86,6 @@ String droneStatusLabel(String status) {
   }
 }
 
-/// Client-side filter. `retired` drones are hidden by default — they only
-/// appear when the `retired` chip is selected.
 @visibleForTesting
 List<Drone> applyDroneFilter(List<Drone> drones, Set<String> selected) {
   if (selected.isEmpty) {
@@ -85,6 +105,17 @@ class AdminDronesPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(adminDronesStreamProvider);
     final selected = ref.watch(_droneFilterProvider);
+    final all = async.valueOrNull ?? const <Drone>[];
+    final counts = <String, int>{};
+    for (final d in all) {
+      counts[d.status] = (counts[d.status] ?? 0) + 1;
+    }
+    final summary = [
+      '${counts['idle'] ?? 0} idle',
+      '${counts['flying'] ?? 0} flying',
+      '${counts['maintenance'] ?? 0} maint.',
+      '${counts['offline'] ?? 0} offline',
+    ].join(' · ');
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -93,43 +124,48 @@ class AdminDronesPage extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Add drone'),
       ),
-      body: Column(
-        children: [
-          _FilterBar(selected: selected),
-          const Divider(height: 1),
-          Expanded(
-            child: async.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => ErrorRetry(
-                message: 'Failed to load drones: $e',
-                onRetry: () => ref.invalidate(adminDronesStreamProvider),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => ErrorRetry(
+          message: 'Failed to load drones: $e',
+          onRetry: () => ref.invalidate(adminDronesStreamProvider),
+        ),
+        data: (_) {
+          return ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              PageHeader(
+                eyebrow: 'P-A-03 · FLEET',
+                title: 'Drones',
+                subtitle: summary,
               ),
-              data: (all) {
-                if (all.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.flight,
-                    title: 'No drones yet',
-                    helper: 'Once the fleet is seeded, drones show up here.',
+              _FilterBar(selected: selected),
+              if (all.isEmpty)
+                const EmptyState(
+                  icon: Icons.flight,
+                  title: 'No drones yet',
+                  helper: 'Once the fleet is seeded, drones show up here.',
+                )
+              else
+                () {
+                  final filtered = applyDroneFilter(all, selected);
+                  if (filtered.isEmpty) {
+                    return const EmptyState(
+                      icon: Icons.filter_alt_off,
+                      title: 'No drones in this filter',
+                      helper: 'Try clearing or changing the status filter above.',
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final d in filtered) _DroneCard(drone: d),
+                    ],
                   );
-                }
-                final filtered = applyDroneFilter(all, selected);
-                if (filtered.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.filter_alt_off,
-                    title: 'No drones in this filter',
-                    helper: 'Try clearing or changing the status filter above.',
-                  );
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) => _DroneCard(drone: filtered[i]),
-                );
-              },
-            ),
-          ),
-        ],
+                }(),
+              const SizedBox(height: AppSpacing.xl),
+            ],
+          );
+        },
       ),
     );
   }
@@ -141,6 +177,7 @@ class _FilterBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = Theme.of(context);
     void toggle(String? s) {
       final next = {...selected};
       if (s == null) {
@@ -151,27 +188,51 @@ class _FilterBar extends ConsumerWidget {
       ref.read(_droneFilterProvider.notifier).state = next;
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          FilterChip(
-            key: const Key('filter-all'),
-            label: const Text('All'),
-            selected: selected.isEmpty,
-            onSelected: (_) => toggle(null),
+    Widget chip({
+      required Key key,
+      required String label,
+      required bool isSelected,
+      required VoidCallback onTap,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          key: key,
+          label: Text(label),
+          selected: isSelected,
+          onSelected: (_) => onTap(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.chip),
           ),
-          const SizedBox(width: 8),
-          for (final s in _statusFilters) ...[
-            FilterChip(
+          selectedColor: t.colorScheme.primary.withValues(alpha: 0.18),
+          side: BorderSide(color: t.dividerColor),
+          labelStyle: TextStyle(
+            color: isSelected ? t.colorScheme.primary : t.colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        children: [
+          chip(
+            key: const Key('filter-all'),
+            label: 'All',
+            isSelected: selected.isEmpty,
+            onTap: () => toggle(null),
+          ),
+          for (final s in _statusFilters)
+            chip(
               key: Key('filter-$s'),
-              label: Text(droneStatusLabel(s)),
-              selected: selected.contains(s),
-              onSelected: (_) => toggle(s),
+              label: droneStatusLabel(s),
+              isSelected: selected.contains(s),
+              onTap: () => toggle(s),
             ),
-            const SizedBox(width: 8),
-          ],
         ],
       ),
     );
@@ -185,82 +246,124 @@ class _DroneCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final statusColor = droneStatusColor(drone.status, theme.colorScheme);
+    final palette = droneStatusPalette(drone.status, context.statusColors);
+    final tints = context.categoryTints;
 
-    return InkWell(
-      key: Key('drone-${drone.id}'),
-      onTap: () => context.push('/admin/drones/${drone.id}'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm + 2,
+      ),
+      child: Card(
+        child: InkWell(
+          key: Key('drone-${drone.id}'),
+          onTap: () => context.push('/admin/drones/${drone.id}'),
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(child: Icon(Icons.flight, color: theme.colorScheme.onPrimary)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        drone.name,
-                        style: theme.textTheme.titleMedium,
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: tints.fallback,
+                        borderRadius:
+                            BorderRadius.circular(AppRadii.iconTile),
                       ),
+                      child: Icon(
+                        Icons.flight,
+                        size: 20,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            drone.name,
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            'max ${drone.maxPayloadKg.toStringAsFixed(1)} kg',
+                            style: context.appText.mono,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      key: Key('drone-status-${drone.id}'),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: palette.bg,
+                        borderRadius:
+                            BorderRadius.circular(AppRadii.chip),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: palette.fg,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            droneStatusLabel(drone.status),
+                            style: TextStyle(
+                              color: palette.fg,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm + 2),
+                Row(
+                  children: [
+                    Expanded(
+                      child: BatteryBar(percent: drone.batteryPct.toDouble()),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Text(
+                      '${drone.batteryPct}%',
+                      style: context.appText.monoStrong,
+                    ),
+                  ],
+                ),
+                if (drone.currentFlightId != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.flight_takeoff,
+                        size: 14,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 4),
                       Text(
-                        'max ${drone.maxPayloadKg.toStringAsFixed(1)} kg',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        drone.currentFlightId!,
+                        key: Key('drone-flight-${drone.id}'),
+                        style: context.appText.requestId,
                       ),
                     ],
                   ),
-                ),
-                Chip(
-                  key: Key('drone-status-${drone.id}'),
-                  label: Text(
-                    droneStatusLabel(drone.status),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  backgroundColor: statusColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: BatteryBar(percent: drone.batteryPct.toDouble()),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '${drone.batteryPct}%',
-                  style: theme.textTheme.labelMedium,
-                ),
-              ],
-            ),
-            if (drone.currentFlightId != null) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(
-                    Icons.flight_takeoff,
-                    size: 14,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    drone.currentFlightId!,
-                    key: Key('drone-flight-${drone.id}'),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
                 ],
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

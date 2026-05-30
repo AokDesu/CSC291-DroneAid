@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/firebase_errors.dart';
 import '../reports/report_dialog.dart';
+import 'history_page.dart' show reportFilableStatuses;
 
 const _region = 'asia-southeast1';
 
@@ -104,7 +105,18 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
   Widget build(BuildContext context) {
     final async = ref.watch(_reqProvider(widget.reqId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Confirm receipt')),
+      appBar: AppBar(
+        leading: BackButton(
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/user/queue');
+            }
+          },
+        ),
+        title: const Text('Confirm receipt'),
+      ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load request: ${describeFunctionsError(e)}')),
@@ -114,32 +126,95 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
           }
           final rawItems = (data['items'] as List?) ?? const [];
           final deliveredAt = data['deliveredAt'] ?? data['createdAt'];
+          final status = (data['status'] as String?) ?? '';
+          // Confirm callable only accepts 'delivered' (normal path) or
+          // 'in_flight' (Tracking-page early-confirm — must be at destination).
+          final canConfirm = status == 'delivered' || status == 'in_flight';
+          // Report callable rejects mid-flight requests — only filable once
+          // the delivery has landed (see reportDeliveryIssue.ts +
+          // docs/adr/0004-reports-as-first-class-dispute-entity.md).
+          final canReport = reportFilableStatuses.contains(status);
+          final blockedReason = canConfirm
+              ? null
+              : status == 'confirmed'
+                  ? 'This delivery is already confirmed.'
+                  : status.isEmpty
+                      ? 'Request status unavailable.'
+                      : 'This request is "$status" — not ready to confirm.';
+          final t = Theme.of(context);
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.inventory_2_outlined, size: 80),
+                Center(
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: t.colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          size: 48,
+                          color: t.colorScheme.primary,
+                        ),
+                        Positioned(
+                          right: 18,
+                          bottom: 18,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF2D8C7F),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: const Icon(
+                              Icons.check,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 Text(
                   'Did you receive your supplies?',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  style: t.textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Items: ${_formatItems(rawItems)}',
+                  _formatItems(rawItems),
                   textAlign: TextAlign.center,
+                  style: t.textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Delivered at ${_formatTime(deliveredAt)}',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: t.textTheme.bodySmall,
                 ),
                 const Spacer(),
+                if (blockedReason != null) ...[
+                  Text(
+                    blockedReason,
+                    textAlign: TextAlign.center,
+                    style: t.textTheme.bodySmall?.copyWith(
+                      color: t.colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton(
-                  onPressed: _loading ? null : _confirm,
+                  onPressed: (_loading || !canConfirm) ? null : _confirm,
                   child: _loading
                       ? const SizedBox(
                           height: 20,
@@ -153,8 +228,12 @@ class _ConfirmPageState extends ConsumerState<ConfirmPage> {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
-                  onPressed: _loading ? null : _reportProblem,
-                  child: const Text("Something's wrong — report"),
+                  onPressed: (_loading || !canReport) ? null : _reportProblem,
+                  child: Text(
+                    canReport
+                        ? "Something's wrong — report"
+                        : 'Report unavailable yet',
+                  ),
                 ),
               ],
             ),

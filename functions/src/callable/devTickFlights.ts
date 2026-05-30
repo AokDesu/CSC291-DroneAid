@@ -11,7 +11,7 @@
 // depth — this must never run against a real Firestore.
 
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { requireAdmin } from "../lib/roles";
+import { requireUser } from "../lib/roles";
 import { tickAllFlights } from "../scheduled/tickFlights";
 
 export const devTickFlights = onCall(async (req) => {
@@ -21,6 +21,11 @@ export const devTickFlights = onCall(async (req) => {
       "devTickFlights is only available on the Firebase emulator.",
     );
   }
-  await requireAdmin(req);
+  // Any signed-in tester (admin OR end-user) can drive the loop locally —
+  // the env gate above already prevents prod calls. Lets the demo flight
+  // progress while testing the user-side flow without parking on
+  // /admin/control. requireUser keeps the call rejected when no auth token
+  // is attached at all.
+  await requireUser(req);
   return tickAllFlights(Date.now());
 });

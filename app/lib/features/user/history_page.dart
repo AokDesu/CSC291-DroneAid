@@ -11,8 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/firebase_errors.dart';
+import '../../core/theme_extensions.dart';
+import '../../core/tokens.dart';
 import '../../core/widgets/error_retry.dart';
 import '../../core/widgets/loading_placeholder.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/request_id_text.dart';
 import '../../core/widgets/status_chip.dart';
 import '../reports/report.dart';
 import '../reports/report_dialog.dart';
@@ -24,7 +28,7 @@ const _functionsRegion = 'asia-southeast1';
 
 /// Request statuses where a Report may be filed (mirrors backend gate
 /// in functions/src/callable/reportDeliveryIssue.ts).
-const _reportFilableStatuses = {'delivered', 'confirmed', 'failed'};
+const reportFilableStatuses = {'delivered', 'confirmed', 'failed'};
 
 /// Pure helper — buckets terminal-state requests by their createdAt date,
 /// newest day first. Days themselves preserve the input order (which is
@@ -77,35 +81,37 @@ class HistoryPage extends ConsumerWidget {
               .toList(growable: false);
           final names = namesAsync.valueOrNull ?? const <String, String>{};
 
-          if (history.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: () async => ref.invalidate(myRequestsProvider),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 96),
-                  _EmptyState(),
-                ],
-              ),
-            );
-          }
-
           final grouped = groupByDay(history);
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(myRequestsProvider),
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: grouped.length,
+              padding: EdgeInsets.zero,
+              itemCount: grouped.length + 1 + (history.isEmpty ? 1 : 0),
               itemBuilder: (_, i) {
-                final entry = grouped[i];
+                if (i == 0) {
+                  return const PageHeader(
+                    eyebrow: 'P-U-07 · HISTORY',
+                    title: 'History',
+                    subtitle: 'Past deliveries and resolved reports.',
+                  );
+                }
+                if (history.isEmpty && i == 1) {
+                  return const _EmptyState();
+                }
+                final entry = grouped[i - 1];
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.md,
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                      ),
                       child: Text(
-                        formatDayHeader(entry.key),
-                        style: Theme.of(context).textTheme.titleSmall,
+                        formatDayHeader(entry.key).toUpperCase(),
+                        style: context.appText.sectionLabel,
                       ),
                     ),
                     for (final r in entry.value)
@@ -169,49 +175,44 @@ class _HistoryRow extends StatelessWidget {
     final summary = formatItemSummary(request.items, catalogNames);
     final time = relativeTime(request.createdAt);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: InkWell(
-        key: Key('history-row-${request.id}'),
-        onTap: () => _showDetailSheet(context, request, summary),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '#${request.id}',
-                      style: theme.textTheme.titleSmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  StatusChip(status: request.status),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(summary, style: theme.textTheme.bodyLarge),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                children: [
-                  Text(
-                    '${request.totalWeightKg.toStringAsFixed(1)} kg',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  Text(time, style: theme.textTheme.bodySmall),
-                  if (request.currentFlightId != null)
-                    Text(
-                      'Flight ${request.currentFlightId}',
-                      style: theme.textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm,
+      ),
+      child: Card(
+        child: InkWell(
+          key: Key('history-row-${request.id}'),
+          onTap: () => _showDetailSheet(context, request, summary),
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    RequestIdText(request.id),
+                    const SizedBox(width: 6),
+                    StatusChip(status: request.status, dense: true),
+                    const Spacer(),
+                    Text(time, style: context.appText.mono),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  summary,
+                  style: theme.textTheme.bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${request.totalWeightKg.toStringAsFixed(1)} kg'
+                  '${request.currentFlightId != null ? '   ·   Flight ${request.currentFlightId}' : ''}',
+                  style: context.appText.mono,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -281,7 +282,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
       data: (rs) => rs.any((r) => r.status == ReportStatus.open),
       orElse: () => false,
     );
-    final canReport = _reportFilableStatuses.contains(request.status) &&
+    final canReport = reportFilableStatuses.contains(request.status) &&
         !hasOpenReport;
 
     return SafeArea(

@@ -10,8 +10,10 @@ import 'package:latlong2/latlong.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/auth/user_profile.dart';
 import '../../core/firebase_errors.dart';
+import '../../core/theme_mode_provider.dart';
 import '../../core/widgets/drone_map.dart';
 import '../../core/widgets/loading_placeholder.dart';
+import '../../core/widgets/page_header.dart';
 import 'request/cart.dart' show DeliveryPin;
 import 'request/pin_picker.dart';
 
@@ -139,7 +141,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     _phone = TextEditingController(text: p.phone ?? '');
     _deliveryPin = _readPin(p.deliveryAddress);
     _hubPin = _readPin(p.hubLocation);
-    _theme = p.theme;
+    // Legacy user docs may store 'system' — coerce to a concrete mode that
+    // the segmented control can render. Defaults to light to match screenshots.
+    _theme = (p.theme == 'light' || p.theme == 'dark') ? p.theme : 'light';
     _notificationsEnabled = p.notificationsEnabled;
   }
 
@@ -260,8 +264,14 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
+          const PageHeader(
+            eyebrow: 'P-U-09 · PROFILE',
+            title: 'Profile',
+            subtitle: 'Your account, address, and notification settings.',
+            padding: EdgeInsets.fromLTRB(0, 24, 0, 8),
+          ),
           _ProfileHeader(profile: widget.initial),
           const SizedBox(height: 16),
           _SectionCard(
@@ -315,20 +325,16 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           _SectionCard(
             title: 'Preferences',
             children: [
-              DropdownButtonFormField<String>(
-                initialValue: _theme,
-                decoration: const InputDecoration(
-                  labelText: 'Theme',
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'system', child: Text('System')),
-                  DropdownMenuItem(value: 'light', child: Text('Light')),
-                  DropdownMenuItem(value: 'dark', child: Text('Dark')),
-                ],
-                onChanged: (v) => setState(() => _theme = v ?? 'system'),
+              _ThemeSegmented(
+                value: _theme,
+                onChanged: (next) {
+                  setState(() => _theme = next);
+                  ref.read(themeModeProvider.notifier).set(
+                        next == 'dark' ? ThemeMode.dark : ThemeMode.light,
+                      );
+                },
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
               SwitchListTile(
                 value: _notificationsEnabled,
                 title: const Text('Notifications'),
@@ -612,6 +618,75 @@ class _PinCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Two-state Light / Dark pill used on the Profile preferences card.
+class _ThemeSegmented extends StatelessWidget {
+  const _ThemeSegmented({required this.value, required this.onChanged});
+  final String value; // 'light' | 'dark'
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+
+    Widget pill({
+      required String id,
+      required String label,
+      required IconData icon,
+    }) {
+      final selected = value == id;
+      return Expanded(
+        child: InkWell(
+          key: Key('theme-$id'),
+          onTap: () => onChanged(id),
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: selected
+                  ? t.colorScheme.primary.withValues(alpha: 0.14)
+                  : t.colorScheme.surface,
+              border: Border.all(
+                color: selected ? t.colorScheme.primary : t.dividerColor,
+                width: 1.2,
+              ),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: selected ? t.colorScheme.primary : t.colorScheme.onSurface,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected
+                        ? t.colorScheme.primary
+                        : t.colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        pill(id: 'light', label: 'Light', icon: Icons.wb_sunny_outlined),
+        const SizedBox(width: 8),
+        pill(id: 'dark', label: 'Dark', icon: Icons.dark_mode_outlined),
+      ],
     );
   }
 }

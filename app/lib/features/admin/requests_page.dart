@@ -1,18 +1,22 @@
 // P-A-01 Admin Requests list.
 // Spec: docs/09-page-flow-design.md §6 P-A-01.
+// Visual: docs/prototype-screens/admin/P-A-01_admin_requests.png.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme_extensions.dart';
+import '../../core/tokens.dart';
+import '../../core/widgets/category_icon_tile.dart';
 import '../../core/widgets/error_retry.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/request_id_text.dart';
 import '../../core/widgets/status_chip.dart';
+import '../../core/widgets/user_avatar_initials.dart';
 import 'requests/admin_request.dart';
 import 'requests/admin_requests_provider.dart';
 
-/// Pure helper — "Just now", "7 min ago", "Yesterday", "Mar 14". Mirrors
-/// the user-side helper, kept local so this page stays decoupled from the
-/// user-side queue PR until that lands. Also reused by reports_page.
 String relativeAge(DateTime? when, {DateTime? now}) {
   if (when == null) return '—';
   final ref = now ?? DateTime.now();
@@ -29,9 +33,6 @@ String relativeAge(DateTime? when, {DateTime? now}) {
   return '${months[when.month - 1]} ${when.day}';
 }
 
-/// Pure helper — "food-kit ×2 · blanket ×1". Falls back to the raw
-/// catalogId since the admin list does not need a catalog name lookup on
-/// this row (kept lightweight).
 @visibleForTesting
 String formatAdminItemSummary(List<AdminRequestItem> items) {
   if (items.isEmpty) return '(no items)';
@@ -60,92 +61,122 @@ class _AdminRequestsPageState extends ConsumerState<AdminRequestsPage> {
     final async = ref.watch(adminAllRequestsProvider);
     final names = ref.watch(userNamesProvider).valueOrNull ??
         const <String, String>{};
+    final pendingCount = (async.valueOrNull ?? const <AdminRequest>[])
+        .where((r) => r.status == 'pending')
+        .length;
 
     return Scaffold(
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
-              key: const Key('admin-requests-search'),
-              controller: _search,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search by user name or request id',
-                border: const OutlineInputBorder(),
-                isDense: true,
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _search.clear();
-                          setState(() {});
-                        },
-                      ),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => ErrorRetry(
+          message: 'Failed to load requests: $e',
+          onRetry: () => ref.invalidate(adminAllRequestsProvider),
+        ),
+        data: (all) {
+          final filtered = filterRequests(
+            all,
+            filter: _filter,
+            search: _search.text,
+            userNames: names,
+          );
+          return ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              PageHeader(
+                eyebrow: 'P-A-01 · TRIAGE',
+                title: 'Requests',
+                subtitle:
+                    '$pendingCount pending · live feed from users.',
               ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          SizedBox(
-            height: 56,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              children: [
-                for (final f in AdminRequestFilter.values)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilterChip(
-                      key: Key('chip-${f.name}'),
-                      label: Text(f.label),
-                      selected: _filter == f,
-                      onSelected: (_) => setState(() => _filter = f),
+              _FilterChipRow(
+                value: _filter,
+                onChanged: (f) => setState(() => _filter = f),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md,
+                ),
+                child: TextField(
+                  key: const Key('admin-requests-search'),
+                  controller: _search,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    hintText: 'Search by user name or request id',
+                    isDense: true,
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _search.clear();
+                              setState(() {});
+                            },
+                          ),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              if (filtered.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: Text(
+                      'No requests match this filter.',
+                      textAlign: TextAlign.center,
                     ),
                   ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: async.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => ErrorRetry(
-                message: 'Failed to load requests: $e',
-                onRetry: () => ref.invalidate(adminAllRequestsProvider),
-              ),
-              data: (all) {
-                final filtered = filterRequests(
-                  all,
-                  filter: _filter,
-                  search: _search.text,
-                  userNames: names,
-                );
-                if (filtered.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text(
-                        'No requests match this filter.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
-                  itemBuilder: (_, i) => _AdminRequestRow(
-                    request: filtered[i],
+                )
+              else
+                for (final r in filtered)
+                  _AdminRequestRow(
+                    request: r,
                     userNames: names,
                   ),
-                );
-              },
+              const SizedBox(height: AppSpacing.xl),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FilterChipRow extends StatelessWidget {
+  const _FilterChipRow({required this.value, required this.onChanged});
+  final AdminRequestFilter value;
+  final ValueChanged<AdminRequestFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        children: [
+          for (final f in AdminRequestFilter.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                key: Key('chip-${f.name}'),
+                label: Text(f.label),
+                selected: value == f,
+                onSelected: (_) => onChanged(f),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.chip),
+                ),
+                selectedColor:
+                    t.colorScheme.primary.withValues(alpha: 0.18),
+                side: BorderSide(color: t.dividerColor),
+                labelStyle: TextStyle(
+                  color: value == f
+                      ? t.colorScheme.primary
+                      : t.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -165,67 +196,88 @@ class _AdminRequestRow extends StatelessWidget {
     final label = request.deliveryLabel;
     final summary = formatAdminItemSummary(request.items);
     final age = relativeAge(request.createdAt);
+    final mono = context.appText.mono;
+    final isUrgent = request.priority == 'urgent';
+    final firstCatalog = request.items.isEmpty
+        ? 'misc'
+        : request.items.first.catalogId;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        key: Key('admin-row-${request.id}'),
-        onTap: () => context.go('/admin/requests/${request.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: theme.textTheme.titleSmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  StatusChip(status: request.status),
-                ],
-              ),
-              if (label != null && label.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodySmall,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm + 2,
+      ),
+      child: Card(
+        child: InkWell(
+          key: Key('admin-row-${request.id}'),
+          onTap: () => context.go('/admin/requests/${request.id}'),
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    RequestIdText(request.id),
+                    StatusChip(status: request.status, dense: true),
+                    if (isUrgent) const UrgentTag(dense: true),
+                    Text(age, style: mono),
+                  ],
                 ),
-              const SizedBox(height: 6),
-              Text(summary, style: theme.textTheme.bodyLarge),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text('#${request.id}', style: theme.textTheme.bodySmall),
-                  Text(
-                    '${request.totalWeightKg.toStringAsFixed(1)} kg',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  Text(age, style: theme.textTheme.bodySmall),
-                  if (request.currentFlightId != null)
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    UserAvatarInitials(name: name, radius: 12),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm - 2),
+                Row(
+                  children: [
+                    CategoryIconTile(catalogId: firstCatalog, size: 24),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        summary,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
                     Text(
-                      'Flight ${request.currentFlightId}',
-                      style: theme.textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
+                      '${request.totalWeightKg.toStringAsFixed(1)} kg',
+                      style: mono,
                     ),
-                  if (request.priority == 'urgent')
-                    Icon(
-                      Icons.priority_high,
-                      size: 16,
-                      color: theme.colorScheme.error,
-                    ),
-                ],
-              ),
-            ],
+                    if (label != null && label.isNotEmpty)
+                      Text(label, style: mono),
+                    if (request.currentFlightId != null)
+                      Text(
+                        'Flight ${request.currentFlightId}',
+                        style: mono,
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
