@@ -14,8 +14,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/auth/auth_providers.dart';
+import 'core/dev/dev_tick_runner.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'core/theme_mode_provider.dart';
 import 'core/widgets/auth_splash.dart';
 import 'features/user/notifications/fcm_register.dart';
 import 'firebase_options.dart';
@@ -69,18 +71,23 @@ class DroneAidApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     ref.watch(fcmRegistrationProvider);
+    // Dev-only: drive the flight simulation tick app-wide so user-side
+    // testing on the emulator doesn't freeze when /admin/control is closed.
+    // No-op in release builds.
+    ref.watch(devTickRunnerProvider);
     // Tag every Crashlytics report with the signed-in uid so reports
     // are filterable per user in the Console.
     ref.listen(authStateProvider, (_, next) {
       final uid = next.valueOrNull?.uid ?? '';
       FirebaseCrashlytics.instance.setUserIdentifier(uid);
     });
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'DroneAid',
       debugShowCheckedModeBanner: false,
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       routerConfig: router,
       builder: (context, child) {
         final auth = ref.watch(authStateProvider);

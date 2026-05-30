@@ -1,5 +1,6 @@
-// User shell: persistent AppBar + NavigationBar around user-side pages.
-// Spec: docs/09-page-flow-design.md §3 (user shell).
+// User shell: branded AppBar + NavigationBar around user-side pages.
+// Spec: docs/09-page-flow-design.md §3 (user shell). Visual reference:
+// docs/prototype-screens/user/P-U-03_request.png.
 //
 // Tabs: Home · Queue · Tracking · History · Profile.
 // Tracking tab is dimmed when the signed-in user has no active flight; tapping
@@ -12,8 +13,11 @@ import 'package:go_router/go_router.dart';
 import '../../features/user/request/app_request.dart';
 import '../../features/user/request/queue_provider.dart';
 import '../auth/auth_providers.dart';
+import '../tokens.dart';
+import '../widgets/app_bar_action.dart';
+import '../widgets/brand_mark.dart';
 import '../widgets/notification_bell.dart';
-import '../widgets/weather_chip.dart';
+import '../widgets/user_avatar_initials.dart';
 
 class UserShell extends ConsumerWidget {
   const UserShell({super.key, required this.child});
@@ -21,9 +25,9 @@ class UserShell extends ConsumerWidget {
   final Widget child;
 
   static const _tabs = <_TabSpec>[
-    _TabSpec(route: '/user/home',    label: 'Home',     icon: Icons.home_outlined,         selectedIcon: Icons.home),
-    _TabSpec(route: '/user/queue',   label: 'Queue',    icon: Icons.list_alt,              selectedIcon: Icons.list_alt),
-    _TabSpec(route: '/user/tracking',label: 'Tracking', icon: Icons.flight_outlined,       selectedIcon: Icons.flight),
+    _TabSpec(route: '/user/home',    label: 'Request',  icon: Icons.home_outlined,         selectedIcon: Icons.home),
+    _TabSpec(route: '/user/queue',   label: 'Queue',    icon: Icons.list_alt_outlined,     selectedIcon: Icons.list_alt),
+    _TabSpec(route: '/user/tracking',label: 'Tracking', icon: Icons.place_outlined,        selectedIcon: Icons.place),
     _TabSpec(route: '/user/history', label: 'History',  icon: Icons.history,               selectedIcon: Icons.history),
     _TabSpec(route: '/user/profile', label: 'Profile',  icon: Icons.person_outline,        selectedIcon: Icons.person),
   ];
@@ -37,26 +41,24 @@ class UserShell extends ConsumerWidget {
     final hasActiveFlight = activeFlightId != null;
 
     final profile = ref.watch(userProfileProvider).valueOrNull;
-    final initials = _initials(profile?.name);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('DroneAid'),
+        titleSpacing: AppSpacing.md,
+        title: const BrandMark(),
         actions: [
-          const WeatherChip(),
-          const NotificationBell(),
-          IconButton(
+          const _BellAction(),
+          const SizedBox(width: 6),
+          AppBarAction(
             tooltip: 'Profile',
-            onPressed: () => context.go('/user/profile'),
-            icon: CircleAvatar(
-              radius: 14,
-              child: Text(
-                initials,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              ),
+            padding: const EdgeInsets.all(3),
+            onTap: () => context.go('/user/profile'),
+            child: UserAvatarInitials(
+              name: profile?.name ?? '?',
+              radius: 12,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.sm),
         ],
       ),
       body: child,
@@ -103,13 +105,26 @@ class UserShell extends ConsumerWidget {
     }
     return 0;
   }
+}
 
-  String _initials(String? name) {
-    final n = (name ?? '').trim();
-    if (n.isEmpty) return '?';
-    final parts = n.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
+class _BellAction extends ConsumerWidget {
+  const _BellAction();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Reuse NotificationBell's icon + badge inside the AppBarAction container
+    // by stripping its outer IconButton padding via a sized child.
+    return AppBarAction(
+      tooltip: 'Notifications',
+      onTap: () {
+        final profile = ref.read(userProfileProvider).valueOrNull;
+        final route = (profile?.isAdmin ?? false)
+            ? '/admin/notifications'
+            : '/user/notifications';
+        GoRouter.of(context).go(route);
+      },
+      child: const NotificationBellGlyph(size: 16),
+    );
   }
 }
 

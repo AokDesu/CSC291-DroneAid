@@ -29,6 +29,8 @@ class AppRequest {
     required this.totalWeightKg,
     required this.createdAt,
     this.currentFlightId,
+    this.priority,
+    this.deliveryLabel,
   });
 
   final String id;
@@ -38,6 +40,8 @@ class AppRequest {
   final double totalWeightKg;
   final DateTime? createdAt;
   final String? currentFlightId;
+  final String? priority;
+  final String? deliveryLabel;
 
   factory AppRequest.fromSnap(
     QueryDocumentSnapshot<Map<String, dynamic>> snap,
@@ -53,6 +57,7 @@ class AppRequest {
           ),
         )
         .toList(growable: false);
+    final addr = data['deliveryAddress'] as Map<String, dynamic>?;
     return AppRequest(
       id: snap.id,
       userId: (data['userId'] as String?) ?? '',
@@ -61,6 +66,8 @@ class AppRequest {
       totalWeightKg: (data['totalWeightKg'] as num?)?.toDouble() ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       currentFlightId: data['currentFlightId'] as String?,
+      priority: data['priority'] as String?,
+      deliveryLabel: addr?['label'] as String?,
     );
   }
 

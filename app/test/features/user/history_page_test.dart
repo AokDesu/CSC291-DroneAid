@@ -82,7 +82,8 @@ void main() {
           ),
         ],
       );
-      expect(find.text('Thu, Jun 4'), findsOneWidget);
+      // SectionLabel uppercases the day header in the screenshot-parity redesign.
+      expect(find.text('THU, JUN 4'), findsOneWidget);
     });
 
     testWidgets('tapping a row opens the detail sheet', (tester) async {

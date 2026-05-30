@@ -34,14 +34,25 @@ class DeliveryPin {
 
 @immutable
 class CartState {
-  const CartState({this.lines = const {}, this.pin});
+  const CartState({
+    this.lines = const {},
+    this.pin,
+    this.priority = 'normal',
+  });
   final Map<String, int> lines;
   final DeliveryPin? pin;
+  final String priority; // 'normal' | 'urgent'
 
-  CartState copyWith({Map<String, int>? lines, DeliveryPin? pin, bool clearPin = false}) {
+  CartState copyWith({
+    Map<String, int>? lines,
+    DeliveryPin? pin,
+    bool clearPin = false,
+    String? priority,
+  }) {
     return CartState(
       lines: lines ?? this.lines,
       pin: clearPin ? null : (pin ?? this.pin),
+      priority: priority ?? this.priority,
     );
   }
 
@@ -65,6 +76,10 @@ class CartNotifier extends StateNotifier<CartState> {
 
   void setPin(DeliveryPin pin) {
     state = state.copyWith(pin: pin);
+  }
+
+  void setPriority(String priority) {
+    state = state.copyWith(priority: priority);
   }
 
   void clear() {
@@ -121,5 +136,6 @@ Map<String, dynamic> buildSubmitPayload({
   return {
     'items': items,
     'deliveryAddress': addr,
+    'priority': cart.priority,
   };
 }

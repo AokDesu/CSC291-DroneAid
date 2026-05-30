@@ -38,7 +38,7 @@ export async function seedDemoNotifications(): Promise<void> {
     col.add({
       title: "Delivered — please confirm",
       body: "Tap to confirm you received your supplies.",
-      deepLink: "/user/confirm/demo-req-in-flight",
+      deepLink: "/user/confirm/demo-req-delivered",
       createdAt: new Date(now - 1 * MIN),
       readAt: null,
       demoTag: DEMO_TAG,

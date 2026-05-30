@@ -10,8 +10,9 @@ import 'package:cloud_functions/cloud_functions.dart';
 String describeFunctionsError(Object e) {
   if (e is FirebaseFunctionsException) {
     final msg = e.message;
-    if (msg != null && msg.isNotEmpty) return msg;
-    return e.code;
+    final code = e.code;
+    if (msg != null && msg.isNotEmpty) return '[$code] $msg';
+    return '[$code]';
   }
   return e.toString();
 }

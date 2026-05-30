@@ -18,21 +18,33 @@ class NotificationBell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(notificationsProvider);
     final profile = ref.watch(userProfileProvider).valueOrNull;
-    final unread = async.valueOrNull?.where((n) => n.isUnread).length ?? 0;
     final route = (profile?.isAdmin ?? false)
         ? '/admin/notifications'
         : '/user/notifications';
-
     return IconButton(
       tooltip: 'Notifications',
       onPressed: () => context.go(route),
-      icon: Badge(
-        isLabelVisible: unread > 0,
-        label: Text(unread > 99 ? '99+' : '$unread'),
-        child: const Icon(Icons.notifications_outlined),
-      ),
+      icon: const NotificationBellGlyph(),
+    );
+  }
+}
+
+/// Bell icon + unread badge with no IconButton wrapping. Used inside the
+/// AppBarAction soft-gray pills so the outer container provides the tap target.
+class NotificationBellGlyph extends ConsumerWidget {
+  const NotificationBellGlyph({super.key, this.size = 18});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(notificationsProvider);
+    final unread = async.valueOrNull?.where((n) => n.isUnread).length ?? 0;
+    return Badge(
+      isLabelVisible: unread > 0,
+      label: Text(unread > 99 ? '99+' : '$unread'),
+      child: Icon(Icons.notifications_outlined, size: size),
     );
   }
 }

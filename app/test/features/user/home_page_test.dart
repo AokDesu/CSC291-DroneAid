@@ -95,6 +95,7 @@ void main() {
           {'catalogId': 'blanket', 'qty': 1},
         ],
         'deliveryAddress': {'lat': 13.7, 'lng': 100.5, 'label': 'Home'},
+        'priority': 'normal',
       });
     });
 
@@ -178,13 +179,14 @@ void main() {
         catalog: [_entry(id: 'water-5l', name: 'Water 5 L', stock: 0)],
       );
       expect(find.text('Out of stock'), findsOneWidget);
-      final inc = tester.widget<IconButton>(
+      // _AddButton is an InkResponse with onTap == null when canAdd is false.
+      final inc = tester.widget<InkResponse>(
         find.byKey(const Key('inc-water-5l')),
       );
-      expect(inc.onPressed, isNull);
+      expect(inc.onTap, isNull);
     });
 
-    testWidgets('weight bar shows "Total exceeds drone payload." when over',
+    testWidgets('over-payload disables submit with explanatory copy',
         (tester) async {
       await _pump(
         tester,
@@ -196,6 +198,14 @@ void main() {
       await tester.pump();
       await tester.tap(find.byKey(const Key('inc-water-5l')));
       await tester.pump();
+
+      // Scroll the submit area into view — the page is taller after the
+      // PageHeader + CategoryIconTile rows landed.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('submit-request')),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Total exceeds drone payload.'), findsWidgets);
     });
   });

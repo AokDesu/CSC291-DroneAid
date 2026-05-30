@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/admin/weather/weather.dart';
 import '../../features/admin/weather/weather_providers.dart';
 import '../auth/auth_providers.dart';
+import '../tokens.dart';
 
 class WeatherChip extends ConsumerWidget {
   const WeatherChip({super.key});
@@ -21,33 +22,45 @@ class WeatherChip extends ConsumerWidget {
     final hasError = async.hasError && !async.isLoading;
     final state = async.valueOrNull?.state ?? 'clear';
     final isAdmin = profile?.isAdmin ?? false;
-    final theme = Theme.of(context);
+    final t = Theme.of(context);
 
-    final icon = hasError ? Icons.cloud_off : _iconFor(state);
-    final label = hasError ? 'Offline' : _labelFor(state);
+    final icon = hasError ? Icons.cloud_off : iconFor(state);
+    final label = hasError ? 'Offline' : labelFor(state);
     final fg = hasError
-        ? theme.colorScheme.onSurfaceVariant
-        : theme.colorScheme.onSurface;
-    final bg = hasError
-        ? theme.colorScheme.surfaceContainerHighest
-        : null;
+        ? t.colorScheme.onSurfaceVariant
+        : t.colorScheme.onSurface;
+    final bg = t.brightness == Brightness.dark
+        ? const Color(0xFF1F242B)
+        : const Color(0xFFF2F4F8);
 
-    final chip = Chip(
-      avatar: Icon(icon, size: 16, color: fg),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: 12, color: fg),
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadii.chip),
       ),
-      backgroundColor: bg,
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: fg,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: isAdmin
           ? InkWell(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadii.chip),
               onTap: () => context.go('/admin/weather'),
               child: chip,
             )
@@ -55,7 +68,7 @@ class WeatherChip extends ConsumerWidget {
     );
   }
 
-  static IconData _iconFor(String state) {
+  static IconData iconFor(String state) {
     switch (state) {
       case 'storm':
         return Icons.thunderstorm;
@@ -67,12 +80,31 @@ class WeatherChip extends ConsumerWidget {
     }
   }
 
-  static String _labelFor(String state) {
+  static String labelFor(String state) {
     return weatherOptions
         .firstWhere(
           (o) => o.state == state,
           orElse: () => WeatherOption(state: state, label: state, detail: ''),
         )
         .label;
+  }
+}
+
+/// Compact glyph (icon only) version used inside AppBarAction containers
+/// in the admin shell. No background — the wrapper supplies it.
+class WeatherChipGlyph extends ConsumerWidget {
+  const WeatherChipGlyph({super.key, this.size = 18});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(weatherStreamProvider);
+    final state = async.valueOrNull?.state ?? 'clear';
+    final hasError = async.hasError && !async.isLoading;
+    return Icon(
+      hasError ? Icons.cloud_off : WeatherChip.iconFor(state),
+      size: size,
+    );
   }
 }

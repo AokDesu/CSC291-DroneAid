@@ -56,16 +56,17 @@ final userNamesProvider =
 
 // ─── Filter chip vocabulary ─────────────────────────────────────────────
 
-/// Filter-chip enum surfaced on P-A-01 per issue #16 AC.
+/// Filter-chip enum surfaced on P-A-01. Mirrors the 5-bucket UX prescribed
+/// by docs/09-page-flow-design.md §6 P-A-01:
+///   All / Pending / In flight / Delivered / Failed.
+/// Each bucket groups every Request status that's semantically equivalent
+/// from the admin triage view.
 enum AdminRequestFilter {
   all,
   pending,
-  approved,
   inFlight,
-  completed,
-  cancelled,
-  rejected,
-  aborted,
+  delivered,
+  failed,
 }
 
 extension AdminRequestFilterLabel on AdminRequestFilter {
@@ -75,48 +76,41 @@ extension AdminRequestFilterLabel on AdminRequestFilter {
         return 'All';
       case AdminRequestFilter.pending:
         return 'Pending';
-      case AdminRequestFilter.approved:
-        return 'Approved';
       case AdminRequestFilter.inFlight:
         return 'In flight';
-      case AdminRequestFilter.completed:
-        return 'Completed';
-      case AdminRequestFilter.cancelled:
-        return 'Cancelled';
-      case AdminRequestFilter.rejected:
-        return 'Rejected';
-      case AdminRequestFilter.aborted:
-        return 'Aborted';
+      case AdminRequestFilter.delivered:
+        return 'Delivered';
+      case AdminRequestFilter.failed:
+        return 'Failed';
     }
   }
 }
 
 /// Returns true when [status] belongs in the bucket selected by [filter].
-/// "Approved" intentionally includes the transient `assigned` state so an
-/// approved-but-waiting-for-takeoff request doesn't vanish between chips.
-/// "Completed" groups `completed`, `confirmed` (user confirmed receipt),
-/// and `delivered` (en-route to confirm) — admin view treats these as
-/// done-or-near-done.
+/// Buckets intentionally absorb transient + near-terminal statuses so admin
+/// never sees a row "vanish" between chips:
+///   inFlight  ← approved | assigned | in_flight (admin can still intervene)
+///   delivered ← delivered | confirmed | completed (success-track)
+///   failed    ← rejected | cancelled | aborted | failed (didn't deliver)
 bool statusMatchesFilter(String status, AdminRequestFilter filter) {
   switch (filter) {
     case AdminRequestFilter.all:
       return true;
     case AdminRequestFilter.pending:
       return status == 'pending';
-    case AdminRequestFilter.approved:
-      return status == 'approved' || status == 'assigned';
     case AdminRequestFilter.inFlight:
-      return status == 'in_flight';
-    case AdminRequestFilter.completed:
-      return status == 'completed' ||
+      return status == 'approved' ||
+          status == 'assigned' ||
+          status == 'in_flight';
+    case AdminRequestFilter.delivered:
+      return status == 'delivered' ||
           status == 'confirmed' ||
-          status == 'delivered';
-    case AdminRequestFilter.cancelled:
-      return status == 'cancelled';
-    case AdminRequestFilter.rejected:
-      return status == 'rejected';
-    case AdminRequestFilter.aborted:
-      return status == 'aborted' || status == 'failed';
+          status == 'completed';
+    case AdminRequestFilter.failed:
+      return status == 'rejected' ||
+          status == 'cancelled' ||
+          status == 'aborted' ||
+          status == 'failed';
   }
 }
 

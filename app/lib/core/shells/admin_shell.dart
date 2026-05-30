@@ -1,15 +1,20 @@
-// Admin shell: AppBar + top TabBar around admin pages.
-// Spec: docs/09-page-flow-design.md §3 (admin shell).
+// Admin shell: branded AppBar + top TabBar around admin pages.
+// Spec: docs/09-page-flow-design.md §3 (admin shell). Visual reference:
+// docs/prototype-screens/admin/P-A-01_admin_requests.png.
 //
-// Top tabs: Requests · Drones · Control · More.
-// The "More" tab opens a bottom sheet exposing Weather / Inventory / Profile,
-// matching the design's secondary-nav drawer behaviour.
+// Top tabs: Requests · Drones · Control · More (4-tab bar, matches PNG).
+// The "More" tab opens a bottom sheet exposing Reports / Weather / Inventory /
+// Profile so secondary destinations stay one tap away.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../tokens.dart';
+import '../widgets/app_bar_action.dart';
+import '../widgets/brand_mark.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/role_pill.dart';
 import '../widgets/weather_chip.dart';
 
 class AdminShell extends ConsumerStatefulWidget {
@@ -24,10 +29,9 @@ class AdminShell extends ConsumerStatefulWidget {
 class _AdminShellState extends ConsumerState<AdminShell>
     with SingleTickerProviderStateMixin {
   static const _tabs = <_AdminTabSpec>[
-    _AdminTabSpec(route: '/admin/requests', label: 'Requests', icon: Icons.assignment),
-    _AdminTabSpec(route: '/admin/reports',  label: 'Reports',  icon: Icons.report_outlined),
-    _AdminTabSpec(route: '/admin/drones',   label: 'Drones',   icon: Icons.flight),
-    _AdminTabSpec(route: '/admin/control',  label: 'Control',  icon: Icons.map),
+    _AdminTabSpec(route: '/admin/requests', label: 'Requests', icon: Icons.assignment_outlined),
+    _AdminTabSpec(route: '/admin/drones',   label: 'Drones',   icon: Icons.flight_outlined),
+    _AdminTabSpec(route: '/admin/control',  label: 'Control',  icon: Icons.map_outlined),
   ];
 
   late final TabController _controller;
@@ -35,16 +39,13 @@ class _AdminShellState extends ConsumerState<AdminShell>
   /// True while a programmatic `animateTo` is running (deep-link sync,
   /// More-sheet fallback). The TabController listener fires on every
   /// index change — user-tapped AND programmatic — and we only want
-  /// the user-tap branch to navigate. Without this guard, navigating
-  /// to a non-primary route (e.g. /admin/weather, /admin/notifications)
-  /// would trigger the sync animateTo, which would re-fire the listener
-  /// and `context.go` back to the primary fallback tab (Requests).
+  /// the user-tap branch to navigate.
   bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
-    // 5 tabs total: 4 primary destinations + "More" sheet trigger.
+    // 3 primary tabs + "More" sheet trigger.
     _controller = TabController(length: _tabs.length + 1, vsync: this);
     _controller.addListener(_onTabSelected);
   }
@@ -64,7 +65,6 @@ class _AdminShellState extends ConsumerState<AdminShell>
     }
     final i = _controller.index;
     if (i == _tabs.length) {
-      // "More" — pop sheet, snap selection back to the active primary tab.
       _showMoreSheet();
       final fallback = _primaryIndexFor(GoRouterState.of(context).matchedLocation);
       _syncing = true;
@@ -90,7 +90,6 @@ class _AdminShellState extends ConsumerState<AdminShell>
     final primaryIndex = _primaryIndexFor(location);
     if (_controller.index != primaryIndex &&
         !_controller.indexIsChanging) {
-      // Sync underline to the currently active route (e.g. after deep link).
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _syncing = true;
@@ -100,25 +99,37 @@ class _AdminShellState extends ConsumerState<AdminShell>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('DroneAid · Admin'),
+        titleSpacing: AppSpacing.md,
+        title: const _AdminTitle(),
         actions: [
-          const WeatherChip(),
-          const NotificationBell(),
-          IconButton(
-            tooltip: 'Weather settings',
-            onPressed: () => context.go('/admin/weather'),
-            icon: const Icon(Icons.settings_outlined),
+          AppBarAction(
+            tooltip: 'Weather',
+            onTap: () => context.go('/admin/weather'),
+            child: const WeatherChipGlyph(size: 16),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
+          AppBarAction(
+            tooltip: 'Notifications',
+            onTap: () => context.go('/admin/notifications'),
+            child: const NotificationBellGlyph(size: 16),
+          ),
+          const SizedBox(width: AppSpacing.sm),
         ],
         bottom: TabBar(
           controller: _controller,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
+          isScrollable: false,
           tabs: [
             for (final t in _tabs)
-              Tab(icon: Icon(t.icon), text: t.label),
-            const Tab(icon: Icon(Icons.more_horiz), text: 'More'),
+              Tab(
+                icon: Icon(t.icon, size: 18),
+                iconMargin: const EdgeInsets.only(bottom: 4),
+                text: t.label,
+              ),
+            const Tab(
+              icon: Icon(Icons.more_horiz, size: 18),
+              iconMargin: EdgeInsets.only(bottom: 4),
+              text: 'More',
+            ),
           ],
         ),
       ),
@@ -135,6 +146,14 @@ class _AdminShellState extends ConsumerState<AdminShell>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              ListTile(
+                leading: const Icon(Icons.report_outlined),
+                title: const Text('Reports'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  context.go('/admin/reports');
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.cloud_outlined),
                 title: const Text('Weather'),
@@ -159,11 +178,27 @@ class _AdminShellState extends ConsumerState<AdminShell>
                   context.go('/admin/profile');
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _AdminTitle extends StatelessWidget {
+  const _AdminTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(child: BrandMark(size: 18)),
+        SizedBox(width: 6),
+        RolePill(role: 'Admin', dense: true),
+      ],
     );
   }
 }

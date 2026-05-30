@@ -8,8 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme_extensions.dart';
+import '../../core/tokens.dart';
+import '../../core/widgets/category_icon_tile.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/error_retry.dart';
+import '../../core/widgets/page_header.dart';
 import 'inventory/catalog_icons.dart';
 import 'inventory/catalog_item.dart';
 import 'inventory/catalog_providers.dart';
@@ -73,18 +77,39 @@ class AdminInventoryPage extends ConsumerWidget {
           onRetry: () => ref.invalidate(adminCatalogStreamProvider),
         ),
         data: (items) {
-          if (items.isEmpty) {
-            return const EmptyState(
-              icon: Icons.inventory_2_outlined,
-              title: 'No catalog items yet',
-              helper: 'Tap "Add item" to create your first one.',
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (_, i) => _InventoryRow(item: items[i]),
+          final active = items.where((i) => i.active).length;
+          return ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              PageHeader(
+                eyebrow: 'P-A-07 · INVENTORY',
+                title: 'Inventory',
+                subtitle: '${items.length} items · $active active.',
+              ),
+              if (items.isEmpty)
+                const EmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'No catalog items yet',
+                  helper: 'Tap "Add item" to create your first one.',
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
+                  child: Card(
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < items.length; i++) ...[
+                          _InventoryRow(item: items[i]),
+                          if (i < items.length - 1) const Divider(height: 1),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: AppSpacing.xxl + AppSpacing.xl),
+            ],
           );
         },
       ),
@@ -100,13 +125,14 @@ class _InventoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ListTile(
-      leading: CircleAvatar(child: Icon(resolveCatalogIcon(item.icon))),
+      leading: CategoryIconTile(catalogId: item.id),
       title: Row(
         children: [
           Expanded(
             child: Text(
               item.name,
               style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
                 color: item.active ? null : theme.disabledColor,
               ),
             ),
@@ -117,19 +143,21 @@ class _InventoryRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: theme.colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadii.chip),
               ),
               child: Text(
                 'Low stock',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onErrorContainer,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
         ],
       ),
       subtitle: Text(
-        '${item.weightKg.toStringAsFixed(1)} kg   ${item.stock} in stock',
+        '${item.weightKg.toStringAsFixed(1)} kg · ${item.stock} in stock',
+        style: context.appText.mono,
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
