@@ -98,7 +98,7 @@ ThemeData _baseTheme(ColorScheme scheme, {required Brightness brightness}) {
       elevation: 0,
       color: surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppRadii.card)),
+        borderRadius: const BorderRadius.all(Radius.circular(AppRadii.card)),
         side: BorderSide(color: borderColor),
       ),
       margin: EdgeInsets.zero,

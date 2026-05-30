@@ -146,7 +146,9 @@ class _Body extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color:
                           theme.colorScheme.primary.withValues(alpha: 0.12),

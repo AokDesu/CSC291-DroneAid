@@ -95,7 +95,8 @@ class AdminInventoryPage extends ConsumerWidget {
               else
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md),
+                    horizontal: AppSpacing.md,
+                  ),
                   child: Card(
                     child: Column(
                       children: [

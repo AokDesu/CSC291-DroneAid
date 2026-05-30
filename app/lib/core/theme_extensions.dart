@@ -256,23 +256,23 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
         color: muted,
         fontFamily: _monoFamily,
       ),
-      sectionLabel: TextStyle(
+      sectionLabel: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.0,
         color: muted,
       ),
-      mono: TextStyle(
+      mono: const TextStyle(
         fontSize: 13,
         fontFamily: _monoFamily,
         color: muted,
         height: 1.3,
       ),
-      monoStrong: TextStyle(
+      monoStrong: const TextStyle(
         fontSize: 13,
         fontFamily: _monoFamily,
         fontWeight: FontWeight.w600,
-        color: const Color(0xFF1F2937),
+        color: Color(0xFF1F2937),
         height: 1.3,
       ),
       requestId: TextStyle(
@@ -281,7 +281,7 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
         color: s.primary,
         fontWeight: FontWeight.w500,
       ),
-      metricLabel: TextStyle(
+      metricLabel: const TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.0,
@@ -305,23 +305,23 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
         color: muted,
         fontFamily: _monoFamily,
       ),
-      sectionLabel: TextStyle(
+      sectionLabel: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.0,
         color: muted,
       ),
-      mono: TextStyle(
+      mono: const TextStyle(
         fontSize: 13,
         fontFamily: _monoFamily,
         color: muted,
         height: 1.3,
       ),
-      monoStrong: TextStyle(
+      monoStrong: const TextStyle(
         fontSize: 13,
         fontFamily: _monoFamily,
         fontWeight: FontWeight.w600,
-        color: const Color(0xFFE6EAF0),
+        color: Color(0xFFE6EAF0),
         height: 1.3,
       ),
       requestId: TextStyle(
@@ -330,7 +330,7 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
         color: s.primary,
         fontWeight: FontWeight.w500,
       ),
-      metricLabel: TextStyle(
+      metricLabel: const TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.0,

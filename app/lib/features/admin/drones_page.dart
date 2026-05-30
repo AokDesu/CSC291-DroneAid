@@ -32,7 +32,7 @@ class _DroneStatusPalette {
   final Color fg;
 }
 
-_DroneStatusPalette droneStatusPalette(String status, AppStatusColors p) {
+_DroneStatusPalette _droneStatusPalette(String status, AppStatusColors p) {
   switch (status) {
     case 'idle':
       return _DroneStatusPalette(bg: p.confirmedBg, fg: p.confirmedFg);
@@ -49,7 +49,7 @@ _DroneStatusPalette droneStatusPalette(String status, AppStatusColors p) {
   }
 }
 
-@Deprecated('Use droneStatusPalette via AppStatusColors ThemeExtension.')
+@Deprecated('Use _droneStatusPalette via AppStatusColors ThemeExtension.')
 Color droneStatusColor(String status, ColorScheme scheme) {
   // Back-compat shim. Returns a vaguely correct color for any caller still
   // relying on the old API (widget tests reference it).
@@ -246,7 +246,7 @@ class _DroneCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final palette = droneStatusPalette(drone.status, context.statusColors);
+    final palette = _droneStatusPalette(drone.status, context.statusColors);
     final tints = context.categoryTints;
 
     return Padding(
@@ -299,7 +299,9 @@ class _DroneCard extends StatelessWidget {
                     Container(
                       key: Key('drone-status-${drone.id}'),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: palette.bg,
                         borderRadius:
