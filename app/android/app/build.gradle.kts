@@ -24,7 +24,10 @@ android {
         applicationId = "com.droneaid.droneaid"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Documented floor (23) for BiometricPrompt (local_auth) +
+        // flutter_secure_storage's encryptedSharedPreferences. maxOf keeps the
+        // effective floor at the (higher) Flutter default rather than lowering it.
+        minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

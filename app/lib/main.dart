@@ -13,12 +13,14 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/applock/app_lock_providers.dart';
 import 'core/auth/auth_providers.dart';
 import 'core/dev/dev_tick_runner.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'core/theme_mode_provider.dart';
 import 'core/widgets/auth_splash.dart';
+import 'features/applock/lock_screen.dart';
 import 'features/user/notifications/fcm_register.dart';
 import 'firebase_options.dart';
 
@@ -82,6 +84,9 @@ class DroneAidApp extends ConsumerWidget {
       FirebaseCrashlytics.instance.setUserIdentifier(uid);
     });
     final themeMode = ref.watch(themeModeProvider);
+    // Keep the app-lock controller (and its lifecycle listener) alive app-wide
+    // and re-run the builder below whenever the lock status changes.
+    final lock = ref.watch(appLockControllerProvider);
     return MaterialApp.router(
       title: 'DroneAid',
       debugShowCheckedModeBanner: false,
@@ -91,7 +96,12 @@ class DroneAidApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) {
         final auth = ref.watch(authStateProvider);
+        // Order matters: resolve auth BEFORE the lock, so the lock never
+        // overlays the signed-out /login screen.
         if (auth.isLoading) return const AuthSplash();
+        if (auth.valueOrNull == null) return child ?? const SizedBox.shrink();
+        if (lock.status == AppLockStatus.unknown) return const AuthSplash();
+        if (lock.status == AppLockStatus.locked) return const LockScreen();
         return child ?? const SizedBox.shrink();
       },
     );
