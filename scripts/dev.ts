@@ -2,7 +2,8 @@
 // DroneAid — one-shot dev runner (Bun, cross-platform).
 //
 // Starts the Firebase Emulator Suite, waits for it to be ready, seeds it
-// on first run, then runs the Flutter app. Ctrl-C tears everything down.
+// on first run, then runs the Flutter app. Ctrl-C tears everything down and
+// persists emulator state; quitting Flutter (q) also persists state.
 //
 // Emulator state persists between runs in ./.emulator-data/.
 //
@@ -11,11 +12,11 @@
 //   bun scripts/dev.ts -d <device-id>     # pass through to flutter run
 //
 // To wipe persisted emulator state and reseed from scratch:
-//   rm -rf .emulator-data          # macOS/Linux
-//   Remove-Item -Recurse -Force .emulator-data   # Windows PowerShell
+//   rm -rf .emulator-data                          # macOS/Linux
+//   Remove-Item -Recurse -Force .emulator-data     # Windows PowerShell
 //   bun scripts/dev.ts
 
-import { existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { connect } from "node:net";
 
@@ -26,7 +27,8 @@ const EMU_DATA = resolve(REPO_ROOT, ".emulator-data");
 const FLUTTER_ARGS = process.argv.slice(2);
 
 // Windows ships npm/npx/firebase/flutter as .cmd shims; Bun.spawn won't resolve
-// the bare name. node.exe is on PATH directly, so it stays as-is.
+// the bare name. node.exe / taskkill.exe are real executables on PATH, so they
+// stay as-is.
 const IS_WIN = process.platform === "win32";
 const bin = (name: string) => (IS_WIN ? `${name}.cmd` : name);
 
@@ -34,6 +36,19 @@ const FIRESTORE_PORT = 8080;
 const AUTH_PORT = 9099;
 const FUNCTIONS_PORT = 5001;
 const UI_PORT = 4000;
+
+// On Windows the .cmd shims run through cmd.exe, whose argument quoting is
+// fragile. A repo cloned under a path with spaces (e.g. "C:\Users\Jane Doe\…")
+// can make the firebase --import/--export paths break in non-obvious ways.
+// Warn loudly rather than fail mysteriously.
+if (IS_WIN && EMU_DATA.includes(" ")) {
+  console.warn(
+    `[dev] WARNING: repo path contains spaces:\n` +
+      `        ${EMU_DATA}\n` +
+      `        Firebase --import/--export may misbehave on Windows.\n` +
+      `        Consider cloning to a space-free path (e.g. C:\\src\\droneaid).`,
+  );
+}
 
 const hasData = existsSync(EMU_DATA);
 const env = { ...process.env, GCLOUD_PROJECT: "droneaid-csc291" };
@@ -74,6 +89,9 @@ const emuArgs = [
   "emulators:start",
   "--only", "auth,firestore,functions,ui",
   ...(hasData ? ["--import", EMU_DATA] : []),
+  // Safety net for the Ctrl-C path (see shutdown()): on a console signal the
+  // emulator exports on its own. We never rely on this for the flutter-quit
+  // path — that uses an explicit emulators:export instead.
   "--export-on-exit", EMU_DATA,
 ];
 
@@ -85,37 +103,124 @@ const emu = Bun.spawn([bin("firebase"), ...emuArgs], {
   stdin: "inherit",
 });
 
-// On Windows, Bun.spawn's kill() maps to TerminateProcess — no graceful Ctrl-C.
-// When the user presses Ctrl-C in the terminal, Windows already delivers
-// CTRL_C_EVENT to every child sharing the console (including the firebase
-// emulator), so --export-on-exit fires from the OS-level signal and our
-// taskkill below becomes a no-op on an already-exiting pid. For the
-// flutter-exits-normally path we accept a /F kill — the previous run's export
-// is still on disk.
-const killTree = (pid: number) => {
+// ---------------------------------------------------------------------------
+// Shutdown helpers
+// ---------------------------------------------------------------------------
+
+// Force-terminate a process tree. The named tools are launched on Windows via
+// cmd.exe wrappers, so /T is required to reach the real child (the Java
+// firestore/auth emulators, the tsc node process). Last-resort only — it does
+// NOT let the emulator run its export hook.
+const forceKill = (pid: number) => {
   if (IS_WIN) {
     try { Bun.spawnSync(["taskkill", "/pid", String(pid), "/T", "/F"]); } catch {}
+  } else {
+    try { process.kill(pid, "SIGKILL"); } catch {}
+  }
+};
+
+// Race a process's exit against a timeout. Returns true if it exited in time.
+const exitedWithin = async (proc: { exited: Promise<number> }, ms: number) => {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<boolean>((r) => { timer = setTimeout(() => r(false), ms); });
+  const done = proc.exited.then(() => true);
+  const ok = await Promise.race([done, timeout]);
+  clearTimeout(timer!);
+  return ok;
+};
+
+// Ask the *running* emulator to dump its state to disk, deterministically.
+// Used on the flutter-quit path, where no console Ctrl-C reaches the emulator
+// and so --export-on-exit would never fire. --force overwrites the existing
+// export dir without an interactive prompt (which would hang on inherited
+// stdin). Tolerant of failure: if the emulator is already going down (e.g. a
+// racing signal), we just warn and let the caller stop it.
+const exportEmulatorData = async () => {
+  try {
+    const exp = Bun.spawn([bin("firebase"), "emulators:export", EMU_DATA, "--force"], {
+      cwd: FUNCTIONS_DIR,
+      env,
+      stdout: "inherit",
+      stderr: "inherit",
+      stdin: "ignore",
+    });
+    if (!(await exitedWithin(exp, 30_000))) {
+      forceKill(exp.pid);
+      console.warn("[dev] emulator export timed out");
+    } else if ((await exp.exited) !== 0) {
+      console.warn("[dev] emulator export reported a non-zero exit");
+    }
+  } catch (e) {
+    console.warn(`[dev] emulator export failed: ${e}`);
   }
 };
 
 let shuttingDown = false;
-const shutdown = async (code = 0) => {
+let gotSignal = false;
+
+// reason:
+//   "signal"       → user pressed Ctrl-C. On Windows the OS already delivered
+//                    CTRL_C_EVENT to the emulator (it shares our console), so
+//                    it is already exporting + exiting. We must NOT race it
+//                    with taskkill — we wait for the graceful export to finish
+//                    and only force-kill if it hangs. On Unix we send SIGINT
+//                    ourselves for the same effect.
+//   "flutter-exit" → user quit Flutter (q) or it crashed. No console signal
+//                    reached the emulator, so --export-on-exit would never
+//                    fire. We trigger an explicit export, THEN stop it.
+//   "abort"        → early failure (e.g. seed failed) on a fresh run. Do NOT
+//                    export — the on-disk state would be incomplete/garbage and
+//                    would poison the next --import. Hard-stop everything.
+const shutdown = async (code = 0, reason: "signal" | "flutter-exit" | "abort" = "signal") => {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log("\n[dev] shutting down…");
-  if (IS_WIN) {
-    killTree(tscWatch.pid);
-    killTree(emu.pid);
-  } else {
-    try { tscWatch.kill("SIGTERM"); } catch {}
-    try { emu.kill("SIGINT"); } catch {}
+  // A racing Ctrl-C always wins: if a signal was seen, treat as graceful export.
+  if (gotSignal && reason === "flutter-exit") reason = "signal";
+
+  console.log(`\n[dev] shutting down (${reason})…`);
+
+  // tsc --watch has no state to flush; stop it immediately on every path.
+  if (IS_WIN) forceKill(tscWatch.pid);
+  else { try { tscWatch.kill("SIGTERM"); } catch {} }
+
+  if (reason === "abort") {
+    // SIGKILL / taskkill /F deliberately skips the export hook.
+    forceKill(emu.pid);
+    await emu.exited;
+    process.exit(code);
   }
-  await emu.exited;
+
+  if (reason === "flutter-exit") {
+    // Emulator is still fully alive and got no signal — export on demand,
+    // then stop it (data is safely on disk, so a force stop is fine).
+    console.log("[dev] exporting emulator state…");
+    await exportEmulatorData();
+    if (IS_WIN) forceKill(emu.pid);
+    else { try { emu.kill("SIGINT"); } catch {} }
+    if (!(await exitedWithin(emu, 15_000))) forceKill(emu.pid);
+    await emu.exited;
+    process.exit(code);
+  }
+
+  // reason === "signal": let the signal-driven export run to completion.
+  // On Windows the emulator already received CTRL_C_EVENT from the console;
+  // on Unix we deliver SIGINT here.
+  if (!IS_WIN) { try { emu.kill("SIGINT"); } catch {} }
+  console.log("[dev] waiting for emulator to export and exit…");
+  if (!(await exitedWithin(emu, 30_000))) {
+    console.warn("[dev] emulator didn't exit in time; forcing.");
+    forceKill(emu.pid);
+    await emu.exited;
+  }
   process.exit(code);
 };
 
-process.on("SIGINT", () => shutdown(0));
-process.on("SIGTERM", () => shutdown(0));
+process.on("SIGINT", () => { gotSignal = true; void shutdown(0, "signal"); });
+process.on("SIGTERM", () => { gotSignal = true; void shutdown(0, "signal"); });
+
+// ---------------------------------------------------------------------------
+// Readiness probing
+// ---------------------------------------------------------------------------
 
 const probePort = (port: number): Promise<boolean> =>
   new Promise((res) => {
@@ -143,6 +248,10 @@ await Promise.all([
 ]);
 console.log("[dev] emulators up");
 
+// ---------------------------------------------------------------------------
+// First-run seed
+// ---------------------------------------------------------------------------
+
 if (!hasData) {
   console.log("[dev] seeding…");
   // Call node directly against the already-compiled lib/ to skip npm-run-seed's
@@ -161,9 +270,13 @@ if (!hasData) {
   const code = await seed.exited;
   if (code !== 0) {
     console.error(`[dev] seed failed (exit ${code})`);
-    await shutdown(code);
+    await shutdown(code, "abort");
   }
 }
+
+// ---------------------------------------------------------------------------
+// Flutter
+// ---------------------------------------------------------------------------
 
 console.log("[dev] starting flutter run…");
 const flutter = Bun.spawn([bin("flutter"), "run", ...FLUTTER_ARGS], {
@@ -175,4 +288,6 @@ const flutter = Bun.spawn([bin("flutter"), "run", ...FLUTTER_ARGS], {
 });
 
 const flutterCode = await flutter.exited;
-await shutdown(flutterCode);
+// If Ctrl-C drove us here, gotSignal is set and shutdown() will promote this to
+// the "signal" path; otherwise the user quit Flutter and we export explicitly.
+await shutdown(flutterCode, "flutter-exit");
