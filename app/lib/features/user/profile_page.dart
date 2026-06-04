@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:latlong2/latlong.dart';
 
+import '../../core/applock/app_lock_providers.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/auth/user_profile.dart';
 import '../../core/firebase_errors.dart';
@@ -14,6 +15,7 @@ import '../../core/theme_mode_provider.dart';
 import '../../core/widgets/drone_map.dart';
 import '../../core/widgets/loading_placeholder.dart';
 import '../../core/widgets/page_header.dart';
+import '../applock/set_pin_page.dart';
 import 'request/cart.dart' show DeliveryPin;
 import 'request/pin_picker.dart';
 
@@ -343,6 +345,13 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
               ),
             ],
           ),
+          // Device-local app-lock. User-only for the demo (admins have no PIN).
+          // Writes straight to the lock controller — NEVER through
+          // buildProfilePatch/updateProfile, so the secret never hits Firestore.
+          if (!isAdmin) ...[
+            const SizedBox(height: 12),
+            const _SecurityCard(),
+          ],
           if (_serverError != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -528,6 +537,90 @@ class _SectionCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Device-local app-lock controls. Reads/writes the lock controller directly;
+/// nothing here flows through the Firestore profile patch.
+class _SecurityCard extends ConsumerWidget {
+  const _SecurityCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(appLockControllerProvider);
+    final notifier = ref.read(appLockControllerProvider.notifier);
+
+    final String biometricSubtitle;
+    if (!state.hasPin) {
+      biometricSubtitle = 'Set a PIN first';
+    } else if (!state.biometricAvailable) {
+      biometricSubtitle = 'No fingerprint enrolled on this device';
+    } else {
+      biometricSubtitle = 'Use your fingerprint to unlock';
+    }
+
+    return _SectionCard(
+      title: 'Security',
+      children: [
+        SwitchListTile(
+          key: const Key('applock-switch'),
+          value: state.hasPin,
+          title: const Text('App lock (PIN)'),
+          subtitle: Text(
+            state.hasPin ? 'A PIN is required to open the app' : 'Off',
+          ),
+          contentPadding: EdgeInsets.zero,
+          onChanged: (v) async {
+            if (v) {
+              final pin = await showSetPinFlow(context);
+              if (pin != null) await notifier.setPin(pin);
+            } else {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Turn off app lock?'),
+                  content: const Text('Your PIN will be removed from this device.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Turn off'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) await notifier.removePin();
+            }
+          },
+        ),
+        if (state.hasPin) ...[
+          const SizedBox(height: 4),
+          OutlinedButton.icon(
+            key: const Key('change-pin'),
+            onPressed: () async {
+              final pin = await showSetPinFlow(context, title: 'Change PIN');
+              if (pin != null) await notifier.setPin(pin);
+            },
+            icon: const Icon(Icons.pin_outlined),
+            label: const Text('Change PIN'),
+          ),
+        ],
+        const SizedBox(height: 4),
+        SwitchListTile(
+          key: const Key('biometric-switch'),
+          value: state.canUseBiometric,
+          title: const Text('Unlock with fingerprint'),
+          subtitle: Text(biometricSubtitle),
+          contentPadding: EdgeInsets.zero,
+          onChanged: (state.hasPin && state.biometricAvailable)
+              ? (v) => notifier.setBiometricEnabled(v)
+              : null,
+        ),
+      ],
     );
   }
 }

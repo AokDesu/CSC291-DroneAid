@@ -34,6 +34,12 @@ dependencies:
   intl: ^0.20.2
   shared_preferences: ^2.3.2
 
+  # App-lock (device-local PIN + fingerprint)
+  local_auth: ^2.3.0
+  # Pinned <10: 10.0.0 dropped the AndroidOptions(encryptedSharedPreferences:) knob.
+  flutter_secure_storage: ^9.2.2
+  pointycastle: ^3.9.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
